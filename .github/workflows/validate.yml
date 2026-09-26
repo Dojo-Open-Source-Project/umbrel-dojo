@@ -1,0 +1,96 @@
+# Checks the things that are cheap to get wrong: that the vendored tree still
+# matches the upstream tag UMBREL.md claims, and that the app package still
+# passes the Umbrel App Store linter.
+name: Validate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  upstream-deltas:
+    name: Upstream deltas
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare the vendored tree against its upstream tag
+        run: |
+          set -euo pipefail
+          tag="$(sed -n 's/^\*\*Vendored upstream version:\*\* `\(v[^`]*\)`.*/\1/p' UMBREL.md)"
+          if [ -z "${tag}" ]; then
+            echo "Could not read the vendored version from UMBREL.md" >&2
+            exit 1
+          fi
+          echo "UMBREL.md declares ${tag}"
+
+          git fetch --no-tags --depth 1 \
+            https://github.com/Dojo-Open-Source-Project/samourai-dojo \
+            "refs/tags/${tag}:refs/tags/${tag}"
+
+          # Our own files are expected to differ; everything else should not,
+          # apart from the deltas UMBREL.md documents.
+          git diff --stat "${tag}" -- . \
+            ':!umbrel' ':!.github' ':!UMBREL.md' ':!README.md' > /tmp/deltas.txt
+
+          if [ -s /tmp/deltas.txt ]; then
+            echo "Changed files vs ${tag}:"
+            cat /tmp/deltas.txt
+            {
+              echo "### Deltas against upstream ${tag}"
+              echo '```'
+              cat /tmp/deltas.txt
+              echo '```'
+              echo "Every file above must be listed in UMBREL.md."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Vendored tree is identical to ${tag}."
+          fi
+
+          # The mysql permission delta is the only source change we expect.
+          unexpected="$(awk -F'|' 'NF>1 {gsub(/ /,"",$1); print $1}' /tmp/deltas.txt \
+            | grep -v '^docker/my-dojo/mysql/Dockerfile$' || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "::warning::Undocumented deltas against ${tag}: ${unexpected}"
+          fi
+
+      - name: Generated files stay out of the tree
+        run: |
+          set -euo pipefail
+          ./umbrel/scripts/prepare-build.sh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "prepare-build.sh wrote files that are not gitignored:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+
+  lint-app:
+    name: App Store lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout the Umbrel App Store
+        uses: actions/checkout@v4
+        with:
+          repository: getumbrel/umbrel-apps
+          path: umbrel-apps
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint the package with Umbrel's own linter
+        working-directory: umbrel-apps
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          cp -r ../umbrel/dojo ./dojo
+          npm run lint:apps -- dojo
+
+      - name: Check whitespace
+        run: git diff --check
