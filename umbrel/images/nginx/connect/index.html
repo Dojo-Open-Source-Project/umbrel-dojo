@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dojo</title>
+  <link rel="icon" type="image/svg+xml" href="img/dojo.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="app-mark" aria-hidden="true">
+      <img src="img/dojo.svg" alt="">
+    </div>
+    <div class="app-title">
+      <h1>Dojo</h1>
+      <p class="muted" id="app-subtitle">Your private Bitcoin wallet backend</p>
+    </div>
+    <span class="pill pill--pending" id="status-pill">Checking&hellip;</span>
+  </header>
+
+  <main>
+    <section class="card stats" aria-label="Status">
+      <div class="stat">
+        <span class="stat-label">Blocks indexed</span>
+        <span class="stat-value" id="stat-blocks">&mdash;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Indexer tip</span>
+        <span class="stat-value" id="stat-tip">&mdash;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Indexer</span>
+        <span class="stat-value" id="stat-indexer">&mdash;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Uptime</span>
+        <span class="stat-value" id="stat-uptime">&mdash;</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Pair a wallet</h2>
+      <p class="muted">
+        Scan this code with a wallet that supports Dojo, or copy the endpoint below into one that
+        asks for a server URL.
+      </p>
+
+      <div class="tabs" role="tablist" aria-label="Connection type">
+        <button class="tab is-active" role="tab" aria-selected="true" data-target="tor">Tor</button>
+        <button class="tab" role="tab" aria-selected="false" data-target="lan">Local network</button>
+      </div>
+
+      <div class="pairing">
+        <div class="qr" id="qr"><div class="qr-placeholder">Loading&hellip;</div></div>
+        <div class="pairing-detail">
+          <p class="muted" id="pairing-hint">
+            Tor works from anywhere and keeps the connection private. Your wallet needs Tor
+            enabled.
+          </p>
+          <label class="field-label" for="endpoint">Dojo API endpoint</label>
+          <div class="copy-row">
+            <input id="endpoint" type="text" readonly value="">
+            <button class="btn btn--ghost" data-copy="endpoint">Copy</button>
+          </div>
+          <details class="details">
+            <summary>Show pairing payload</summary>
+            <pre id="pairing-json" class="code-block">&mdash;</pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Wallet instructions</h2>
+
+      <details class="details" open>
+        <summary>Sparrow Wallet (desktop)</summary>
+        <ol class="steps">
+          <li>Open <b>Preferences &rsaquo; Server</b> and pick <b>Private Electrum</b>, pointing it at
+            your Electrum server &mdash; Dojo does not replace it.</li>
+          <li>Dojo is used by Sparrow for <b>PayNyms</b> and collaborative transactions. Under
+            <b>Tools &rsaquo; Restart in Tor mode</b>, make sure Tor is running.</li>
+          <li>Use the endpoint above wherever a Dojo/Soroban backend is requested.</li>
+        </ol>
+      </details>
+
+      <details class="details">
+        <summary>Ashigaru Wallet (Android)</summary>
+        <ol class="steps">
+          <li>Install Ashigaru Wallet and choose <b>Connect to existing Dojo</b> during setup.</li>
+          <li>Tap the QR scanner and scan the code above with the <b>Tor</b> tab selected.</li>
+          <li>Finish wallet creation. Ashigaru will show a green indicator once it is talking to
+            your Dojo.</li>
+        </ol>
+      </details>
+
+      <details class="details">
+        <summary>Sentinel (watch-only)</summary>
+        <ol class="steps">
+          <li>Open Sentinel and go to <b>Settings &rsaquo; Connect to Dojo</b>.</li>
+          <li>Scan the code above.</li>
+          <li>Add your xpubs; they will be tracked by your own Dojo instead of a third-party
+            server.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Maintenance tool</h2>
+      <p class="muted">
+        The Dojo Maintenance Tool (DMT) lets you inspect xpubs, rescan addresses and manage API
+        keys.
+      </p>
+      <p>
+        <a class="btn" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a>
+      </p>
+      <label class="field-label" for="admin-key">Admin key</label>
+      <div class="copy-row">
+        <input id="admin-key" type="password" readonly value="">
+        <button class="btn btn--ghost" data-reveal="admin-key">Show</button>
+        <button class="btn btn--ghost" data-copy="admin-key">Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer muted">
+    <span>Dojo <span id="dojo-version">&mdash;</span> &middot; <span id="network-name">mainnet</span></span>
+    <a href="https://github.com/Dojo-Open-Source-Project/samourai-dojo" target="_blank" rel="noopener">Dojo Open Source Project</a>
+  </footer>
+
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/conf.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>

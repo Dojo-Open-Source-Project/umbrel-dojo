@@ -1,0 +1,70 @@
+# Umbrel deltas
+
+This repository vendors [Samourai Dojo](https://github.com/Dojo-Open-Source-Project/samourai-dojo)
+so that Umbrel-ready container images can be built from a pinned, reviewable tree.
+
+**Vendored upstream version:** `v1.29.3` — tag `3f59af3778be918f88f2659804e0e075e733b3a4`,
+commit `8d5d03250841e371f779a7f9bfb812bdc4187797` (2026-09-02).
+
+Everything outside the list below is byte-identical to that tag. Verify at any time with:
+
+```sh
+git fetch --no-tags https://github.com/Dojo-Open-Source-Project/samourai-dojo refs/tags/v1.29.3:refs/tags/v1.29.3
+git diff v1.29.3 -- . ':!umbrel' ':!.github' ':!UMBREL.md' ':!README.md'
+```
+
+## Deltas against upstream
+
+### 1. `docker/my-dojo/mysql/Dockerfile` — file modes `0440`/`0550` → `0444`/`0555`
+
+Upstream tightened these modes in v1.29.3 ("Fixed permissions on mysql docker image files").
+They assume the container runs as root or as a member of the `mysql` group.
+
+Umbrel runs app containers as `user: "1000:1000"` (the UID that owns `${APP_DATA_DIR}`), which
+is neither. With upstream's modes the entrypoint fails on first boot:
+
+```
+/usr/local/bin/docker-entrypoint.sh: line 88: /docker-entrypoint-initdb.d/1_db.sql: Permission denied
+```
+
+and the container exits 1 before the schema is created. Making the config, the init SQL and
+`update-db.sh` world-readable/-executable fixes it. These files contain no secrets — they are the
+public Dojo schema and a copy of a config file that is also in this repo.
+
+Worth upstreaming.
+
+### 2. Files upstream generates at install time
+
+Upstream's `docker/my-dojo/install/install-scripts.sh` writes several gitignored files on the host
+before `docker compose build` runs. We do not run `dojo.sh`, so `umbrel/scripts/prepare-build.sh`
+makes the same choices, once, for both CI and local builds:
+
+| File | Upstream source | Our choice |
+|---|---|---|
+| `docker/my-dojo/mysql/mysql-dojo.cnf` | `mysql-default.cnf` or `mysql-low_mem.cnf` | always `mysql-low_mem.cnf` — Umbrel targets Raspberry Pi 4/5 and similar 4–8 GB devices |
+| `static/admin/conf/index.js` | `index-mainnet.js` or `index-testnet.js` | not generated; nginx serves the network-specific file instead, so the image stays network-agnostic (see `umbrel/images/nginx/`) |
+| `docker/my-dojo/nginx/dojo.conf` | `mainnet.conf` or `testnet.conf` | not used; we build our own nginx image |
+
+### 3. Things deliberately *not* patched
+
+- `docker/my-dojo/node/keys.index.js` needs no changes. It already reads `BITCOIND_*`,
+  `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`, `NET_DOJO_TOR_IPV4` and the
+  `NODE_*` settings from the environment, and wraps the `hsv3dojo` hostname read in try/catch.
+- **Do not set `INDEXER_INSTALL=on`** in the Umbrel package. That branch does an unguarded
+  `readFileSync('/var/lib/tor/hsv3electrum/hostname')`, which only exists when Dojo runs its own
+  bundled indexer behind its own Tor container. Umbrel points Dojo at the `electrs` (or `fulcrum`)
+  app instead, via `NODE_ACTIVE_INDEXER=local_indexer` + `INDEXER_IP`/`INDEXER_RPC_PORT`.
+- `docker/my-dojo/dojo.sh`, `install/`, `overrides/`, and the bitcoind/explorer/indexer/fulcrum
+  image definitions are kept as upstream ships them. Umbrel provides those services as separate
+  apps, so we simply do not build or run them.
+
+## Bumping to a new upstream version
+
+```sh
+git fetch --no-tags https://github.com/Dojo-Open-Source-Project/samourai-dojo refs/tags/vX.Y.Z:refs/tags/vX.Y.Z
+git rm -rq . && git checkout vX.Y.Z -- .        # restores our own files in the next step
+git checkout HEAD@{1} -- umbrel .github UMBREL.md README.md
+```
+
+Then re-apply delta 1, re-read `RELEASES.md` for anything affecting the package (new env vars,
+schema migrations, service topology), update the version tags in `umbrel/dojo/`, and rebuild.
