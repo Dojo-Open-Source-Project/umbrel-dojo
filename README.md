@@ -1,94 +1,107 @@
-# Samourai Dojo
+# umbrel-dojo
 
-Samourai Dojo is the backing server for Samourai Wallet. Provides HD account & loose addresses (BIP47) balances & transactions lists. Provides unspent output lists to the wallet. PushTX endpoint broadcasts transactions through the backing bitcoind node.
+Umbrel App Store packaging for [Samourai Dojo](https://github.com/Dojo-Open-Source-Project/samourai-dojo),
+the private backing server maintained by the Dojo Open Source Project.
 
-[View API documentation](../master/doc/README.md)
+This repository holds two things:
 
-## Support us
-Samourai Dojo is a free open-source project build by and for the community.
+1. **Upstream Dojo, vendored at a pinned tag** (currently `v1.29.3`), so the container images can be
+   built from a tree anyone can diff against upstream. See [UMBREL.md](./UMBREL.md) for every delta
+   and how to bump to a new upstream version.
+2. **The Umbrel app package** in [`umbrel/dojo/`](./umbrel/dojo), ready to drop into
+   [getumbrel/umbrel-apps](https://github.com/getumbrel/umbrel-apps) as `dojo/`.
 
-If you wish to support further development, consider donating to: `PM8TJcvPG6fxeRBAutY24DNCvHfqKDvmp7ynsG8KhdNo6BnDRMzBnXjgV5vkF2p1ekQJxA5DgWxVjLMcnkSCiGhnBdWKzm8vR4PS7iXSxDggKDsVnb2N`
+Dojo upstream publishes no container images — its own `docker-compose.yaml` uses `pull_policy: never`
+and builds everything locally through `dojo.sh`. Umbrel needs prebuilt, publicly pullable, multi-arch
+images, so this repository builds and publishes them.
 
-<img alt="paynym.png" height="200" src="paynym.png" width="200"/>
+## Images
 
-## Installation ##
+All four are published to GHCR as multi-arch manifest lists (`linux/amd64` + `linux/arm64`):
 
-### MyDojo (installation with Docker and Docker Compose)
+| Image | Built from | Version source |
+|---|---|---|
+| `ghcr.io/linkinparkrulz/dojo-nodejs` | `docker/my-dojo/node/Dockerfile` (upstream) | `DOJO_NODEJS_VERSION_TAG` |
+| `ghcr.io/linkinparkrulz/dojo-db` | `docker/my-dojo/mysql/Dockerfile` (upstream, one permission delta) | `DOJO_DB_VERSION_TAG` |
+| `ghcr.io/linkinparkrulz/dojo-soroban` | `docker/my-dojo/soroban/Dockerfile` (upstream) | `DOJO_SOROBAN_VERSION_TAG` |
+| `ghcr.io/linkinparkrulz/dojo-nginx` | [`umbrel/images/nginx/`](./umbrel/images/nginx) (ours) | `DOJO_VERSION_TAG` |
 
-This setup is recommended to Samourai users who feel comfortable with a few command lines.
+Versions come from the vendored `docker/my-dojo/.env`, so they cannot drift from the source being built.
 
-It provides in a single command the setup of a full Samourai backend composed of:
+The nginx image is ours because the app needs two things upstream's does not provide: the Connect page
+that Umbrel opens, and a config that survives app updates. Umbrel only copies `docker-compose.yml`,
+top-level `*.template` files, `exports.sh`, `torrc` and `hooks/` into an installed app on update, so
+anything bind-mounted out of the package directory stays frozen at whatever the user first installed.
+Putting it in a pinned image means a digest bump delivers it like any other code change.
 
-* a bitcoin full node only accessible as an ephemeral Tor hidden service,
-* the backend database,
-* the backend modules with an API accessible as a static Tor hidden service,
-* a maintenance tool accessible through a Tor web browser,
-* a block explorer ([BTC RPC Explorer](https://github.com/janoside/btc-rpc-explorer)) accessible through a Tor web browser,
-* an optional indexer of Bitcoin addresses ([addrindexrs](https://github.com/Dojo-Open-Source-Project/addrindexrs)) providing fast and private rescans of HD accounts and loose addresses.
+## Cutting a release
 
-See [the documentation](./doc/DOCKER_setup.md) for detailed setup instructions.
+Release tags are `v<dojo version>-umbrel<n>` — the upstream Dojo version, then the packaging revision.
+Bump `n` for a packaging-only change; the Dojo version follows upstream.
 
+```sh
+git tag v1.29.3-umbrel1
+git push origin v1.29.3-umbrel1
+```
 
-### Manual installation (developers only)
+The **Build images** workflow then builds each architecture on a native runner, pushes by digest, and
+stitches the digests into one manifest list per image. Each image's full pinned reference and its
+platforms are printed to the run summary:
 
-A full manual setup isn't recommended if you don't intend to install a local development environment.
+```
+ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1@sha256:...
+```
 
+Paste those four references into `umbrel/dojo/docker-compose.yml`, replacing the placeholder digests,
+then verify:
 
-## Theory of Operation
+```sh
+docker buildx imagetools inspect ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1
+```
 
-Tracking wallet balances via `xpub` requires conforming to [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki), [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) or [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki) address derivation scheme. Public keys received by Dojo correspond to single accounts and derive all addresses in the account and change chains. These addresses are at `M/0/x` and `M/1/y`, respectively.
+Both `linux/amd64` and `linux/arm64` must be listed, and the package must be public in the repository's
+package settings — Umbrel pulls without credentials.
 
-Dojo relies on the backing bitcoind node to maintain privacy.
+> Native `ubuntu-24.04-arm` runners are free for public repositories. On a private repository the arm64
+> matrix leg will not schedule; fall back to `docker/setup-qemu-action` and a single `platforms:
+> linux/amd64,linux/arm64` build, and expect the Soroban build to take a long time.
 
+## Working on the package
 
-### Architecture
+```sh
+# Lint exactly as the App Store does
+git clone --depth 1 https://github.com/getumbrel/umbrel-apps /tmp/umbrel-apps
+cp -r umbrel/dojo /tmp/umbrel-apps/dojo
+cd /tmp/umbrel-apps && npm install && npm run lint:apps -- dojo --check-images
+```
 
-Dojo is composed of 3 modules:
-* API (/account): web server providing a REST API and web sockets used by Samourai Wallet and Sentinel.
-* PushTx (/pushtx): web server providing a REST API used to push transactions on the Bitcoin P2P network.
-* Tracker (/tracker): process listening to the bitcoind node and indexing transactions of interest.
+The **Validate** workflow runs that on every push, and also re-fetches the upstream tag `UMBREL.md`
+declares and reports any file in the vendored tree that differs from it.
 
-API and PushTx modules are able to operate behind a web server (e.g. nginx) or as frontend http servers (not recommended). Both support HTTP or HTTPS (if SSL has been properly configured in /keys/index.js). These modules can also operate as a Tor hidden service (recommended).
+To build an image locally, first generate the files upstream's installer would have written:
 
-Authentication is enforced by an API key and Json Web Tokens.
+```sh
+./umbrel/scripts/prepare-build.sh
+docker build -f docker/my-dojo/mysql/Dockerfile -t dojo-db:local .
+```
 
+## What the app runs
 
-### Implementation Notes
+| Service | Purpose |
+|---|---|
+| `node` | Dojo itself: accounts API, PushTx, tracker, fee estimator |
+| `db` | MariaDB, holding the address and transaction index |
+| `nginx` | The Dojo API on 8080 (Tor + LAN) and the Connect UI on 8081 (Umbrel's app proxy) |
+| `soroban` | Soroban P2P node, so PandoTx can relay outgoing transactions through someone else's node |
+| `tor` | Hidden service for the Dojo API |
 
-**Tracker**
+Bitcoin Core and the Electrum server are **not** bundled: the app depends on Umbrel's Bitcoin Node and
+Electrs apps, and Fulcrum can stand in for Electrs since it declares `implements: electrs`.
 
-* ZMQ notifications send raw transactions and block hashes. Keep track of txids with timestamps, clearing out old txids after a timeout
-* On realtime transaction:
-  * Query database with all output addresses to see if an account has received a transaction. Notify client via WebSocket.
-  * Query database with all input txids to see if an account has sent coins. Make proper database entries and notify via WebSocket.
-* On a block notification, query database for txids included and update confirmed height
-* On a blockchain reorg (orphan block), previous block hash will not match last known block hash in the app. Need to mark transactions as unconfirmed and rescan blocks from new chain tip to last known hash. Note that many of the transactions from the orphaned block may be included in the new chain.
-* When an input spending a known output is confirmed in a block, delete any other inputs referencing that output, since this would be a double-spend.
+Whirlpool is not included. Its coordinator was shut down in 2024.
 
+## Upstream
 
-**Import of HD Accounts and data sources**
-
-* First import of an unknown HD account relies on a data source (local bitcoind, local indexer or OXT). After that, the tracker will keep everything current.
-
-* Using the local bitcoind (default option) or the local indexer makes you 100% independent of Samourai Wallet's infrastructure and is recommended for better privacy.
-
-* Activation of bitcoind as the data source:
-  * Edit /keys/index.js and set "indexer.active" to "local_bitcoind". OXT API will be ignored.
-
-* Activation of the local indexer as the data source:
-  * Edit /keys/index.js and set "indexer.active" to "local_indexer". OXT API will be ignored.
-
-* Activation of OXT as the data source (through socks5):
-  * Edit /keys/index.js and set "indexer.active" to "third_party_explorer".
-
-* Main drawbacks of using your local bitcoind for these imports:
-  * This option is considered as experimental.
-  * It doesn't return the full transactional history associated to an HD account or to an address but only transactions having an unspent output controlled by the HD account or the address.
-  * It's slightly slower than using the option relying on the OXT API.
-  * It may fail to correctly import an existing wallet if this wallet had a large activity.
-  * If you use bitcoind and if the import seems to return an invalid balance, you can use the "XPUB rescan" function provided by the maintenance tool. This function allows you to force the minimum number of addresses to be derived and the start index for the derivation.
-
-* Main drawbacks of using your local indexer for these imports:
-  * It requires 120GB of additional disk space during its initialization.
-
-As a rule of thumb, we recommend to use the local indexer as the source of imports and to setup your Dojo with a new clean wallet. It increases your privacy and it removes all potential issues with the import of a large wallet.
+Dojo is developed at
+[Dojo-Open-Source-Project/samourai-dojo](https://github.com/Dojo-Open-Source-Project/samourai-dojo)
+and licensed AGPL-3.0-only. Bugs in Dojo itself belong upstream; this tracker is for packaging.
