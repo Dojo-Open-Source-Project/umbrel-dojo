@@ -1,0 +1,50 @@
+manifestVersion: 1
+id: dojo
+category: bitcoin
+name: Dojo
+version: "1.29.3"
+tagline: Your own private backend for Bitcoin wallets
+description: >-
+  Dojo indexes your own wallets against your own Bitcoin node, so the addresses
+  and balances you look up never leave your Umbrel. Pair a wallet to it and
+  nobody else learns which coins are yours.
+
+
+  Requires a Bitcoin node and an Electrum server (Electrs or Fulcrum) — install
+  those first. Dojo uses the Electrum server to import and rescan xpubs
+  quickly, and your Bitcoin node for everything else.
+
+
+  Open the app to pair a wallet. It shows a QR code you can scan from Ashigaru
+  Wallet or Sentinel, and an endpoint you can paste into wallets that ask for a
+  server URL, over Tor or over your local network.
+
+
+  Dojo also runs a Soroban node. Transactions you broadcast are handed to a
+  random node on the Soroban network, which relays them to Bitcoin — so the
+  node that announces your transaction is not your own, and cannot be linked
+  back to you.
+
+
+  Whirlpool is not included. Its coordinator was shut down in 2024 and the
+  service no longer exists.
+releaseNotes: ""
+
+developer: Dojo Open Source Project
+website: https://github.com/Dojo-Open-Source-Project
+dependencies:
+  - bitcoin
+  - electrs
+repo: https://github.com/Dojo-Open-Source-Project/samourai-dojo
+support: https://github.com/Dojo-Open-Source-Project/samourai-dojo/issues
+
+port: 3023
+gallery: []
+path: ""
+
+defaultUsername: ""
+defaultPassword: ""
+
+submitter: linkinparkrulz
+# TODO: replace with the real pull request URL before submitting.
+submission: https://github.com/getumbrel/umbrel-apps/pull/0
