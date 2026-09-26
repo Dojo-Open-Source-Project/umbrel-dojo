@@ -20,11 +20,15 @@ CONNECT_DIR=/var/www/connect
 : "${NODE_WAIT_TIMEOUT:=720}"
 
 if [ "$COMMON_BTC_NETWORK" = "testnet" ]; then
-    cp /etc/nginx/available/dojo-testnet.conf "$SITES_DIR/dojo.conf"
+    dojo_site=/etc/nginx/available/dojo-testnet.conf
 else
-    cp /etc/nginx/available/dojo-mainnet.conf "$SITES_DIR/dojo.conf"
+    dojo_site=/etc/nginx/available/dojo-mainnet.conf
 fi
-cp /etc/nginx/available/connect.conf "$SITES_DIR/connect.conf"
+
+# $NODE_HOST is the only thing substituted in the site configs, so nginx's own
+# $variables ($http_upgrade, $scheme, $uri, ...) pass through untouched.
+envsubst '$NODE_HOST' < "$dojo_site" > "$SITES_DIR/dojo.conf"
+envsubst '$NODE_HOST' < /etc/nginx/available/connect.conf > "$SITES_DIR/connect.conf"
 
 # Only the variables listed here are substituted, so anything else that looks
 # like a shell variable in the template survives untouched.
