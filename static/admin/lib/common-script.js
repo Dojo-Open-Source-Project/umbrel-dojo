@@ -18,10 +18,10 @@ const lib_cmn = {
     getExplorerTxUrl: (txid, explorerInfo) => {
         if (explorerInfo == null)
             return null
-        else if (explorerInfo.pairing.type === 'explorer.oxt')
-            return `${explorerInfo.pairing.url}/transaction/${txid}`
-        else if (explorerInfo.pairing.type === 'explorer.btc_rpc_explorer')
-            return `http://${explorerInfo.pairing.url}/tx/${txid}`
+        else if (explorerInfo.type === 'explorer.oxt')
+            return `${explorerInfo.url}/transaction/${txid}`
+        else if (explorerInfo.type === 'explorer.btc_rpc_explorer')
+            return `${explorerInfo.url}/tx/${txid}`
         else
             return null
     },

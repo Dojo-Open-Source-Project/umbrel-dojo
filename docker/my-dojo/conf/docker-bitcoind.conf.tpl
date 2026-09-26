@@ -24,7 +24,7 @@ BITCOIND_DB_CACHE=1024
 
 # Number of threads to service RPC calls
 # Type: integer
-BITCOIND_RPC_THREADS=6
+BITCOIND_RPC_THREADS=16
 
 # RPC Work queue size
 # Type: integer
@@ -37,13 +37,16 @@ BITCOIND_MEMPOOL_EXPIRY=72
 
 # Min relay tx fee in BTC
 # Type: numeric
-BITCOIND_MIN_RELAY_TX_FEE=0.00001
+BITCOIND_MIN_RELAY_TX_FEE=0.000001
 
 # Allow incoming connections
 # This parameter is inactive if BITCOIND_INSTALL is set to 'off'
 # Values: on | off
 BITCOIND_LISTEN_MODE=on
 
+# Enable or disable mempool persistence
+# Values: on | off
+BITCOIND_PERSIST_MEMPOOL=on
 
 #
 # EXPERT SETTINGS
@@ -115,13 +118,10 @@ BITCOIND_ZMQ_RAWTXS=9501
 # Type: integer
 BITCOIND_ZMQ_BLK_HASH=9502
 
+# Enable Knots ban script
+# Type: on | off
+BITCOIND_BAN_KNOTS=on
 
-#
-# SHUTDOWN
-#
-
-# Max delay for bitcoind shutdown (expressed in seconds)
-# Defines how long Dojo waits for a clean shutdown of bitcoind before shutting down the bitcoind container
-# This parameter is inactive if BITCOIND_INSTALL is set to 'off'
-# Type: integer
-BITCOIND_SHUTDOWN_DELAY=180
+# Allow to set a directory for the blocks
+# Type: string
+BITCOIND_BLOCKS_DIR=""

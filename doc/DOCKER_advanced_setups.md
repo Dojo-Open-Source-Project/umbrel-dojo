@@ -7,28 +7,26 @@ A word of caution, though, the default values of these options try to maximize y
 
 
 ## Table of Content ##
-- [Local indexer of Bitcoin addresses](#local_indexer)
-- [Local Fulcrum as a source of imports and use with external apps](#local_fulcrum)
-- [Local Electrum server used as data source for imports/rescans](#local_electrum)
-- [Local Whirlpool client](#local_whirlpool)
-- [External Bitcoin full node](#external_bitcoind)
-- [bitcoind RPC API and ZMQ notifications exposed to external apps](#exposed_rpc_zmq)
-- [Static onion address for bitcoind hidden service](#static_onion)
-- [Enable Bloom filters in Bitcoin Core](#bloom_filters)
-- [Configure Tor Bridges](#tor_bridges)
-- [Support of testnet](#testnet)
+- [Local indexer of Bitcoin addresses](#local-indexer-of-bitcoin-addresses)
+- [Local Fulcrum as a source of imports and use with external apps](#local-fulcrum-as-a-source-of-imports-and-use-with-external-apps)
+- [Fulcrum API exposed to external apps](#fulcrum-api-exposed-to-external-apps)
+- [Local Electrum server used as data source for imports/rescans](#local-electrum-server-used-as-data-source-for-importsrescans)
+- [External Bitcoin full node](#external-bitcoin-full-node)
+- [bitcoind RPC API and ZMQ notifications exposed to external apps](#bitcoind-rpc-api-and-zmq-notifications-exposed-to-external-apps)
+- [Static onion address for bitcoind hidden service](#static-onion-address-for-bitcoind-hidden-service)
+- [Enable Bloom filters in Bitcoin Core](#enable-bloom-filters)
+- [Configure Tor Bridges](#configure-tor-bridges)
+- [Support of testnet](#support-of-testnet)
 
-
-<a name="local_indexer"/>
 
 ## Local indexer of Bitcoin addresses ##
 
-By default, Dojo uses the local full node as its data source for imports and rescans of HD accounts and addresses. While private, this default option has many limitations. MyDojo allows to install a local indexer ([addrindexrs](https://code.samourai.io/dojo/addrindexrs)) providing the best of both worlds (no request sent to a third party, fast and real time rescans, complete transactional history is retrieved).
+By default, Dojo uses the local full node as its data source for imports and rescans of HD accounts and addresses. While private, this default option has many limitations. MyDojo allows to install a local indexer ([addrindexrs](https://github.com/Dojo-Open-Source-Project/addrindexrs)) providing the best of both worlds (no request sent to a third party, fast and real time rescans, complete transactional history is retrieved).
 
 
 ### Requirements ###
 
-To date, the initial installation of the indexer requires 60GB of additionnal disk space.
+To date, the initial installation of the indexer requires 60GB of additional disk space.
 
 
 ### Main benefits ###
@@ -84,8 +82,6 @@ nano ./conf/docker-node.conf
 #   `dojo.sh logs indexer`
 #
 ```
-
-<a name="local_fulcrum"/>
 
 ## Local Fulcrum as a source of imports and use with external apps ##
 
@@ -151,7 +147,47 @@ nano ./conf/docker-node.conf
 #   `dojo.sh onion`
 ```
 
-<a name="local_electrum"/>
+## Fulcrum API exposed to external apps ##
+
+By default, access to the electrum API of your Fulcrum instance is restricted to Docker containers hosted on the "dojonet" network.
+
+The following steps allow to expose the API to applications running on your local machine but outside of Docker.
+
+```sh
+#
+# If your Docker runs on macos or windows,
+# retrieve the local IP address of the VM
+# hosting your Docker containers
+#
+
+# Stop your Dojo
+./dojo.sh stop
+
+# If you're installing a new Dojo, edit the docker-bitcoind.conf.tpl file
+nano ./conf/docker-indexer.conf.tpl
+
+# Otherwise, edit the docker-bitcoind.conf file
+nano ./conf/docker-indexer.conf
+
+#
+# Set the value of INDEXER_EXTERNAL to "on"
+#
+# If your Docker runs on macos or windows,
+# set the value of INDEXER_EXTERNAL_IP to the IP address of the VM
+#
+# Save and exit nano
+#
+
+# Start your Dojo
+./dojo.sh start
+```
+
+With this setting, external applications running on your local machine should be able to access:
+* 50001: TCP port of your Fulcrum instance
+* 50002: SSL port of your Fulcrum instance
+
+Note: this option has no effect if your setup relies on a external indexer or your indexer is not Fulcrum
+
 
 ## Local Electrum server used as data source for imports/rescans ##
 
@@ -186,83 +222,6 @@ nano ./conf/docker-node.conf
 # Save and exit nano
 #
 ```
-
-
-<a name="local_whirlpool"/>
-
-## Local Whirlpool client ##
-
-This setup allows to install and run a [Whirlpool client](https://code.samourai.io/whirlpool/whirlpool-client-cli) inside MyDojo.
-
-The client can be configured and controlled through a REST API exposed as a Tor hidden service.
-
-
-### Procedure ###
-
-```sh
-# If you're installing a new Dojo or if you're upgrading from a Dojo version < 1.6, edit the docker-whirlpool.conf.tpl file
-nano ./conf/docker-whirlpool.conf.tpl
-
-# Otherwise, edit the docker-whirlpool.conf file
-nano ./conf/docker-whirlpool.conf
-
-#
-# Set the value of WHIRLPOOL_INSTALL to "on"
-## Save and exit nano
-#
-```
-
-### Installation of Whirlpool GUI ###
-
-The [Whirlpool GUI application]((https://code.samourai.io/whirlpool/whirlpool-gui)) provides a graphical interface for your Whirlpool client.
-
-These steps describe how to install the Whirlpool GUI application how a computer and how to connect it to your Whirlpool client.
-
-
-**Requirements**
-
-- MyDojo has been fully initialized,
-- Whirlpool client has been activated in MyDojo,
-- Your Samourai Wallet is paired to MyDojo,
-- MyDojo is running.
-- Tor browser is installed on the computer that will run the Whirlpool GUI application.
-
-
-**Procedure**
-
-- Retrieve the onion address of the API provided by your Whirlpool client
-
-  ```sh
-  # Open a terminal console on the computer hosting your Dojo
-
-  # Retrieve the onion address of the Whirlpool API
-  ./dojo.sh onion
-  ```
-
-- Install and configure the Whirlpool GUI application
-
-  ```
-  # If needed, install Tor browser on the computer that will run the Whirlpool GUI application
-  # Launch the Tor browser
-
-  # Install the Whirlpool GUI application on the computer and launch it
-
-  # Select 'Advanced: remote CLI'
-  # Set 'CLI address' with 'http://your_onion_address' where your_onion_address is the address of the Whirlpool API
-  # Check that the 'Tor proxy' field has the correct socks5 port used by your Tor browser.
-  # Click 'Connect'.
-
-  # Paste the pairing payload from your mobile device when prompted:
-  #   Select the Samourai Wallet Menu (3 dots top right),
-  #   Go to Settings -> Transactions -> Pair to Whirlpool GUI,
-  #   Copy the payload and send to your main computer using any method you prefer,
-  #   Paste the payload.
-
-  # The GUI will restart and prompt for you to enter your Samourai Wallet passphrase.
-  # You are all set and ready to mix!
-  ```
-
-<a name="external_bitcoind"/>
 
 ## External Bitcoin full node ##
 
@@ -351,8 +310,6 @@ Follow these steps if you want to speed up this operation by preloading an archi
 ```
 
 
-<a name="exposed_rpc_zmq"/>
-
 ## bitcoind RPC API and ZMQ notifications exposed to external apps ##
 
 By default, access to the RPC API of your bitcoind is restricted to Docker containers hosted on the "dojonet" network.
@@ -398,8 +355,6 @@ With this setting, external applications running on your local machine should be
 Note: this option has no effect if your setup relies on a external full node (i.e. if BITCOIND_INSTALL is set to "off").
 
 
-<a name="static_onion"/>
-
 ## Static onion address for bitcoind hidden service ##
 
 By default, Dojo creates a new onion address for your bitcoind at each startup.
@@ -425,8 +380,6 @@ nano ./conf/docker-bitcoind.conf
 ```
 
 Note: this option has no effect if your setup relies on a external full node (i.e. if BITCOIND_INSTALL is set to "off").
-
-<a name="bloom_filters"/>
 
 ## Enable Bloom filters ##
 
@@ -458,19 +411,21 @@ nano ./conf/docker-bitcoind.conf
 ./dojo.sh start
 ```
 
-<a name="tor_bridges"/>
-
 ## Configure Tor Bridges ##
 
 By default, Dojo doesn't try to hide that Tor is being used. For the majority of Dojo users, connecting to Tor with the default configuration is appropriate and will work successfully. For some users, it may be appropriate to configure Tor Bridges in order to circumvent censorship enforced by ISP, censorship enforcement bodies and other interested parties.
 
 The following steps allow to activate the use of Tor bridges by Dojo.
 
+A user can choose between obfs4 or snowflake
+
 ```sh
 # Stop your Dojo
 ./dojo.sh stop
 
-# Head over to https://bridges.torproject.org
+# For snowflake, follow guide on https://tb-manual.torproject.org/bridges/ "Request bridges from within Tor Browser" to get bridge addresses
+
+# For obfs4, head over to https://bridges.torproject.org
 # Click on "Get bridges", then you will see a form with "Advanced Options" header
 # Leave the Pluggable Transport as "obfs4" and click on "Get Bridges" button
 # Solve the captcha, you will get the bridge addresses, usually three lines:
@@ -486,6 +441,7 @@ nano ./conf/docker-tor.conf
 
 #
 # Set the value of TOR_USE_BRIDGES to "on"
+# Set the value of TOR_BRIDGE_TYPE to "obfs4" or "snowflake"
 #
 # Set the values of TOR_BRIDGE_n properties with info returned by the website
 # For instance, if the first line generated by the website is:
@@ -497,8 +453,6 @@ nano ./conf/docker-tor.conf
 #
 ```
 
-
-<a name="testnet"/>
 
 ## Support of testnet ##
 
@@ -520,3 +474,39 @@ nano ./conf/docker-common.conf.tpl
 Note: This option must be set before the first installation of Dojo and mustn't be changed after this first installation.
 
 Known limitation: A single instance of Dojo can be run per machine (a same machine can't host both a mainnet and a testnet instance of Dojo).
+
+## Change the blocks directory ##
+
+By default, Dojo will use your main hard drive when downloading the bitcoin blocks.
+
+The following steps allow to change the directory to a external hard drive for example
+
+```sh
+# Create a bitcoin user and group
+sudo adduser --gecos "" --disabled-password bitcoin
+
+# Save and exit nano
+
+# Edit the /etc/passwd folder to have the same user id and group id as dojo
+sudo nano /etc/passwd
+
+# Find the line with the bitcoin user and change the ids to the same as dojo (you can find the correct ids inside the .env file but the defaults are 1105 and 1108)
+bitcoin:x:1105:1108:,,,:/home/bitcoin:/bin/bash
+
+# Save and exit nano
+
+# Create the directory you want to save the blocks
+mkdir /external/bitcoin
+
+# Give the user bitcoin permission to the folder created above
+sudo chown -R bitcoin:bitcoin /external/bitcoin
+
+# Edit the docker-bitcoind.conf.tpl file
+nano ./conf/docker-bitcoind.conf.tpl
+
+#
+# Set the value of BITCOIND_BLOCKS_DIR to the folder you created "/external/bitcoin"
+#
+# Save and exit nano
+#
+```

@@ -16,13 +16,16 @@ tor_options=(
   --HiddenServiceDir /var/lib/tor/hsv3dojo
   --HiddenServiceVersion 3
   --HiddenServicePort "80 $NET_DMZ_NGINX_IPV4:80"
+  --HiddenServiceDirGroupReadable 1
+  --CookieAuthentication 0
+  --ControlPort 9051
 )
 
 if [ "$BITCOIND_INSTALL" == "on" ]; then
   if [ "$BITCOIND_LISTEN_MODE" == "on" ]; then
     tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3bitcoind)
     tor_options+=(--HiddenServiceVersion 3)
-    tor_options+=(--HiddenServicePort "8333 $NET_DOJO_BITCOIND_IPV4:8333")
+    tor_options+=(--HiddenServicePort "8333 $NET_DOJO_BITCOIND_IPV4:8334")
     tor_options+=(--HiddenServiceDirGroupReadable 1)
   fi
 fi
@@ -30,33 +33,47 @@ fi
 if [ "$EXPLORER_INSTALL" == "on" ]; then
   tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3explorer)
   tor_options+=(--HiddenServiceVersion 3)
-  tor_options+=(--HiddenServicePort "80 $NET_DMZ_NGINX_IPV4:9080")
   tor_options+=(--HiddenServiceDirGroupReadable 1)
-fi
 
-if [ "$WHIRLPOOL_INSTALL" == "on" ]; then
-  tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3whirlpool)
-  tor_options+=(--HiddenServiceVersion 3)
-  tor_options+=(--HiddenServicePort "80 $NET_DMZ_NGINX_IPV4:8898")
-  tor_options+=(--HiddenServiceDirGroupReadable 1)
-fi
-
-if [ "$TOR_USE_BRIDGES" == "on" ]; then
-  tor_options+=(--ClientTransportPlugin "obfs4 exec /usr/local/bin/obfs4proxy")
-  tor_options+=(--UseBridges 1)
-  tor_options+=(--Bridge "$TOR_BRIDGE_1")
-  tor_options+=(--Bridge "$TOR_BRIDGE_2")
-  tor_options+=(--Bridge "$TOR_BRIDGE_3")
-fi
-
-if [ "$INDEXER_INSTALL" == "on" ]; then
-  if [ "$INDEXER_TYPE" == "fulcrum" ]; then
-    tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3fulcrum)
-    tor_options+=(--HiddenServiceVersion 3)
-    tor_options+=(--HiddenServicePort "50001 $NET_DOJO_INDEXER_IPV4:50001")
-    tor_options+=(--HiddenServiceDirGroupReadable 1)
+  if [ "$EXPLORER_TYPE" == "btc_rpc_explorer" ]; then
+    tor_options+=(--HiddenServicePort "80 $NET_DOJO_EXPLORER_IPV4:3002")
+  elif [ "$EXPLORER_TYPE" == "mempool_space" ]; then
+    tor_options+=(--HiddenServicePort "80 $NET_MEMPOOL_WEB_IPV4:8080")
   fi
 fi
 
+if [ "$TOR_USE_BRIDGES" == "on" ]; then
+  tor_options+=(--UseBridges 1)
+  if [ "$TOR_BRIDGE_TYPE" == "obfs4" ]; then
+    tor_options+=(--ClientTransportPlugin "obfs4 exec $OBFS_PROXY")
+  fi
+  if [ "$TOR_BRIDGE_TYPE" == "snowflake" ]; then
+    tor_options+=(--ClientTransportPlugin "snowflake exec $SNOWFLAKE_PROXY")
+  fi
+
+  tor_options+=(--Bridge "$TOR_BRIDGE_1")
+  if [ "$TOR_BRIDGE_2" != "" ]; then
+    tor_options+=(--Bridge "$TOR_BRIDGE_2")
+  fi
+  if [ "$TOR_BRIDGE_3" != "" ]; then
+    tor_options+=(--Bridge "$TOR_BRIDGE_3")
+  fi
+fi
+
+if [ "$INDEXER_INSTALL" == "on" ]; then
+  tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3electrum)
+  tor_options+=(--HiddenServiceVersion 3)
+  tor_options+=(--HiddenServicePort "50001 $NET_DOJO_INDEXER_IPV4:50001")
+  tor_options+=(--HiddenServiceDirGroupReadable 1)
+fi
+
+if [ "$SOROBAN_INSTALL" == "on" ]; then
+  tor_options+=(--HiddenServiceDir /var/lib/tor/hsv3soroban)
+  tor_options+=(--HiddenServiceVersion 3)
+  tor_options+=(--HiddenServicePort "80 $NET_DOJO_SOROBAN_IPV4:$SOROBAN_PORT")
+  tor_options+=(--HiddenServiceDirGroupReadable 1)
+fi
+
+test -d /var/lib/tor/hsv3dojo && chmod 750 /var/lib/tor/hsv3dojo
 
 exec tor "${tor_options[@]}"

@@ -1,8 +1,7 @@
-version: "3.2"
-
 services:
   db:
     image: "samouraiwallet/dojo-db:${DOJO_DB_VERSION_TAG}"
+    pull_policy: never
     container_name: db
     build:
       context: ./../..
@@ -26,6 +25,7 @@ services:
 
   node:
     image: "samouraiwallet/dojo-nodejs:${DOJO_NODEJS_VERSION_TAG}"
+    pull_policy: never
     container_name: nodejs
     build:
       context: ./../..
@@ -40,6 +40,7 @@ services:
       - ./conf/docker-explorer.conf
       - ./conf/docker-indexer.conf
       - ./conf/docker-node.conf
+      - ./conf/docker-soroban.conf
       - ./conf/docker-tor.conf
     restart: always
     command: "/home/node/app/wait-for-it.sh db:3306 --timeout=720 --strict -- /home/node/app/restart.sh"
@@ -62,6 +63,7 @@ services:
 
   nginx:
     image: "samouraiwallet/dojo-nginx:${DOJO_NGINX_VERSION_TAG}"
+    pull_policy: never
     container_name: nginx
     build:
       context: ./nginx
@@ -81,8 +83,6 @@ services:
     depends_on:
       - node
     networks:
-      whirlnet:
-        ipv4_address: ${NET_WHIRL_NGINX_IPV4}
       dmznet:
         ipv4_address: ${NET_DMZ_NGINX_IPV4}
       dojonet:
@@ -90,6 +90,7 @@ services:
 
   tor:
     image: "samouraiwallet/dojo-tor:${DOJO_TOR_VERSION_TAG}"
+    pull_policy: never
     container_name: tor
     build:
       context: ./tor
@@ -100,8 +101,8 @@ services:
       - ./.env
       - ./conf/docker-bitcoind.conf
       - ./conf/docker-explorer.conf
-      - ./conf/docker-whirlpool.conf
       - ./conf/docker-indexer.conf
+      - ./conf/docker-soroban.conf
       - ./conf/docker-tor.conf
     restart: always
     command: /restart.sh
@@ -131,12 +132,6 @@ networks:
       driver: default
       config:
         - subnet: 172.29.0.0/16
-  whirlnet:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.30.0.0/16
 
 volumes:
   data-mysql:

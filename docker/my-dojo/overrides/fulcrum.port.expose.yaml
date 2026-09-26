@@ -1,0 +1,5 @@
+services:
+  fulcrum:
+    ports:
+      - "${INDEXER_EXTERNAL_IP}:50001:50001"
+      - "${INDEXER_EXTERNAL_IP}:50002:50002"

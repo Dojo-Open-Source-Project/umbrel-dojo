@@ -3,28 +3,480 @@
 
 ## Releases ##
 
-- [v1.16.1](#samourai-dojo-v1161)
-- [v1.16.0](#samourai-dojo-v1160)
-- [v1.15.0](#samourai-dojo-v1150)
-- [v1.14.0](#samourai-dojo-v1140)
-- [v1.13.0](#samourai-dojo-v1130)
-- [v1.12.1](#samourai-dojo-v1121)
-- [v1.12.0](#samourai-dojo-v1120)
-- [v1.11.0](#samourai-dojo-v1110)
-- [v1.10.1](#samourai-dojo-v1101)
-- [v1.10.0](#samourai-dojo-v1100)
-- [v1.9.0](#samourai-dojo-v190)
-- [v1.8.1](#samourai-dojo-v181)
-- [v1.8.0](#samourai-dojo-v180)
-- [v1.7.0](#samourai-dojo-v170)
-- [v1.6.0](#samourai-dojo-v160)
-- [v1.5.0](#samourai-dojo-v150)
-- [v1.4.1](#samourai-dojo-v141)
-- [v1.4.0](#samourai-dojo-v140)
-- [v1.3.0](#samourai-dojo-v130)
-- [v1.2.0](#samourai-dojo-v120)
-- [v1.1.0](#samourai-dojo-v110)
+- [v1.29.3](#samourai-dojo-v1293)
+- [v1.29.2](#samourai-dojo-v1292)
+- [v1.29.1](#samourai-dojo-v1291)
+- [v1.29.0](#samourai-dojo-v1290)
+- [v1.28.2](#samourai-dojo-v1282)
+- [v1.28.1](#samourai-dojo-v1281)
+- [v1.28.0](#samourai-dojo-v1280)
+- [v1.27.0](#samourai-dojo-v1270)
+- [v1.26.1](#samourai-dojo-v1261)
+- [v1.26.0](#samourai-dojo-v1260)
+- [v1.25.0](#samourai-dojo-v1250)
 
+## Samourai Dojo v1.29.3
+
+### Changelog
+- Fixed permissions on mysql docker image files [1e87e6ae](1e87e6ae)
+
+## Samourai Dojo v1.29.2
+
+### Changelog
+- Remove bitcoind from mempool dependencies [146f0a43](146f0a43)
+- Bump Fulcrum to v2.1.1 [bb4ef189](bb4ef189)
+
+## Samourai Dojo v1.29.1
+
+### Notable changes
+Reverted bitcoinjs updated that cause block sync to stall.
+
+### Changelog
+- Updated lockfile [77ebbeeb](77ebbeeb)
+- Reverted dependency update [d5ae6ad9](d5ae6ad9)
+
+## Samourai Dojo v1.29.0
+
+### Notable changes
+
+#### Mempool Space block explorer
+This version adds support for Mempool Space block explorer. A user can now choose between Mempool Space and BTC-RPC Explorer as an integrated explorer for their paired wallet.
+
+#### Addrindexrs deprecated, added Electrs support
+Addrindexrs has been deprecated in favor of electrs as an option for users with low-performance devices.
+
+### Changelog
+- Login interface changes and style formatting [cfc0c55](cfc0c55)
+- Fix host extraction for ipv6 [00072d7](00072d7)
+- Lower high watermark for block processing in normal mode [61cf623](61cf623)
+- Update migration instructions for Fulcrum v2 and fix typo in file name [96de815](96de815)
+- Lower default min relay tx fee to 0.1 sat/vbyte [1b67f23](1b67f23)
+- Bump Bitcoin Core to v31.0 [a51d34dd](a51d34dd)
+- Bump docker images [973b6ab](973b6ab)
+- Updated dependencies [42226d0](42226d0)
+- Bump Fulcrum to v2.1.0 [3f48fae](3f48fae)
+- Added Mempool Space block explorer [51a9122](51a9122)
+- Deprecated addrindexrs, added electrs support [8ede6ca](8ede6ca)
+- Allow exposure of nginx (Dojo API) to network [e386fba](e386fba)
+- Updated logo [a20bed2](a20bed2)
+- Updated Tor to v0.4.9.6 and Snowflake to v2.13.1 [d6f7021](d6f7021)
+- Updated pull policy for Soroban [dcdb0374](dcdb0374)
+- Only initialize .conf files if they don't already exist [0c576f8d](0c576f8d)
+- Migrated dependencies from `@samouraiwallet` to `@dojo-tools`, updated node engine requirement to >=24 [263bb484](263bb484)
+- Adopt Biome linting and reformat Node services [21ba4766](21ba4766)
+- Bump Mempool API and Web versions to 3.3.0 [f84b9d78](f84b9d78)
+
+### Credits
+- DojoCoder
+- ottosch
+- linkinparkrulz
+
+## Samourai Dojo v1.28.2
+
+### Changelog
+- Bump Soroban to v0.4.2 (fix bandwidth issue) [177d133d](177d133d)
+- Updated @samouraiwallet/one-dollar-fee-estimator (support for subsat feerates) [94e00118](94e00118)
+
+## Samourai Dojo v1.28.1
+
+### Changelog
+- Fixed SSL file handling in Fulcrum container [14c01d70](14c01d70)
+
+## Samourai Dojo v1.28.0
+
+### Notable changes
+
+### Fulcrum v2.0.0
+This version updates Fulcrum to v2.0.0. This Fulcrum update brings more stability and better performance.
+After Dojo uograde, Fulcrum needs to migrate its database to a new format which can take a couple of hours. During this time, it won't be possible to perform a rescan or wallet import.
+
+**It is crucial** that this process is not interrupted (no Dojo shutdown/restart) because that would cause Fulcrum DB to end up corrupted.
+
+Observe progress in Fulcrum logs to identify when this process has finished.
+
+### Changelog
+- Updated dependencies [bdda4a4a](bdda4a4a)
+- Bump BTC-RPC Explorer to 3.5.1 [a30a00fa](a30a00fa)
+- Use Node.js v22 [98f3ae8a](98f3ae8a)
+- Updated base docker images to Bookworm [affd6f9a](affd6f9a)
+- Use MARIADB_AUTO_UPGRADE env variable [0d158b32](0d158b32)
+- Bump Fulcrum to v2.0.0 [8c2232ae](8c2232ae)
+
+## Samourai Dojo v1.27.0
+
+### Notable changes
+
+#### Soroban P2P network
+This version introduces Soroban P2P network. MyDojo (docker setup) users will automatically have Soroban installed as part of their Dojo.
+Dojo will be able to leverage Soroban P2P network for various future applications.
+
+Dojo already has its first feature based on Soroban: PandoTx.
+PandoTx is a transaction transport layer - when your wallet pushes a transaction to Dojo, it will be relayed to a random Soroban node which will then push it to the Bitcoin network.
+This also means that your Soroban node can receive other people's transactions and relay them to Bitcoin network.
+This feature is meant to break the heuristic that a node relaying the transaction is closely coupled with person who made that transaction.
+
+Pushing transactions through Soroban can be deactivated by setting `NODE_PANDOTX_PUSH=off` in `docker-node.conf`.
+
+Processing incoming transactions from Soroban network can be deactivated by setting `NODE_PANDOTX_PROCESS=off` in `docker-node.conf`.
+
+#### API key management
+There has been an uptick of people providing their Dojos for the community. In order to make giving access to Dojo more manageable, the API key management has been introduced.
+Dojo admins can now find new API management tab in their DMT. Here they can create unlimited number of API keys, assign labels for easy identification and set expiration of an API key.
+This allows admins to not compromise their main API key and distribute specific API keys just to desired parties.
+
+#### New API endpoints
+Several new API endpoints have been created so that API consumers have better time developing new features on top of Dojo.
+
+New:
+- `/latest-block` - returns data about latest block
+- `/txout/:txid/:index` - returns unspent output data
+- `/support/services` - returns info about services that Dojo exposes
+
+Updated:
+- `/tx/:txid` - endpoint has been updated to return raw transaction with parameter `?rawHex=1`
+
+The introduction of `/support/services` now also means that the explorer field in the Dojo pairing payload is deprecated.
+While it will still be present, API consumers should switch to using this new endpoint to get explorer and other pairing information.
+
+Please refer to the [API docs](doc/README.md) for details.
+
+### Changelog
+- Added Soroban and PandoTx functionality
+- Update ban script to disconnect inbound Knots nodes [8ca7a8a1](8ca7a8a1)
+- Regenerate fulcrum certificate if expired [4a2aba15](4a2aba15)
+- Check if transaction already exists in pushTx [33ca0451](33ca0451)
+- Bump BTC-RPC Explorer [3c3c48ed](3c3c48ed)
+- Bump Tor to v0.4.8.16, bump Snowflake [eaf7c79d](eaf7c79d)
+- Updated Bitcoin Core to v29.0 [b50bded2](b50bded2)
+- Removed unnecessary middleware [f7591c36](f7591c36)
+- Added "/latest-block" API endpoint [fa19416a](fa19416a)
+- Added new information to transaction API endpoint [4433d4b1](4433d4b1)
+- Added txout API endpoint [5376e16d](5376e16d)
+- Added ability to manage API keys [a82e0e5e](a82e0e5e)
+- Fixed DB update mechanism, added api_keys table [3de7e80f](3de7e80f)
+- Add new /support/services RPC endpoint [8b4f39e4](8b4f39e4)
+- Add an option to use blocksdir config for bitcoin blocks directory [d873d275](d873d275)
+- Removed deprecated configuration [7b5c44fa](7b5c44fa)
+- Updated Fulcrum to v1.12.0 [d073e59e](d073e59e)
+- Updated Node.js dependencies [c1981d0b](c1981d0b), [fbc1f1e1](fbc1f1e1)
+- Reconfigured container dependencies [d5a73c65](d5a73c65)
+- Fix Snowflake git URL [7baa71c5](7baa71c5)
+- Fix log path for testnet4 [c8c6a805](c8c6a805)
+- Use prebuilt addrindexrs binaries [7dd4f55e](7dd4f55e)
+- Add instructions to migrate blockchain/fulcrum [f00ac34b](f00ac34b)
+- Added pull policies [425d6d6e](425d6d6e)
+
+### Credits
+- DojoCoder
+- LaurentMT
+- 零火怖
+- ottosch
+- greenart7c3
+
+## Samourai Dojo v1.26.1
+
+### Changelog
+- Fixed Node.js build issues [5a2fc631](5a2fc631)
+- Update fee estimator [43c01ddb](43c01ddb)
+- Fixed addrindexrs installation [48c2f8f2](48c2f8f2)
+- Updated Tor to v0.4.8.13 [ac3eeeec](ac3eeeec)
+- Updated Snowflake to v2.10.1 [ac3eeeec](ac3eeeec)
+
+## Samourai Dojo v1.26.0
+
+### Notable changes
+
+#### Testnet4 support
+This version updates Bitcoin Core to v28.0 with support for testnet4.
+If you wish to stay on testnet3, DO NOT upgrade.
+
+Furthermore, testnet4 is only supported by Fulcrum. Addrindexrs does not support testnet4.
+
+Dojo tracker will automatically detect block hash mismatch and will delete the block database and resync - all tracked addresses and XPUBs will stay tracked, only their history will be erased due to switch to new chain.
+
+Fulcrum DB has to be deleted manually using `docker exec -it fulcrum rm -rf /home/fulcrum/.fulcrum/db`.
+
+**Mainnet users are unaffected by this change.**
+
+#### Snowflake bridges support in Tor
+This version adds support for Snowflake bridges in Tor. Snowflake is a pluggable transport for Tor that uses WebRTC to disguise traffic.
+
+[See documentation](./doc/DOCKER_advanced_setups.md#configure-tor-bridges) on how to setup Tor bridges.
+
+### Changelog
+- Updated dependencies
+- Updated Fulcrum to v1.11.1
+- Updated Bitcoin Core to v28.0 + testnet4 support
+- Updated Tor to v0.4.8.12
+- Updated MariaDB to v11.5.2
+- Updated Nginx to v1.27.1
+- Updated electrum client library
+- Added support for Snowflake Tor bridges
+- Better multistage build for Tor image
+- Switch from axios to undici
+- Updated documentation
+
+## Samourai Dojo v1.25.0
+
+### Notable changes
+This version removes Whirlpool CLI due to Whirlpool coordinator beeing no longer active. `#FreeSamourai`
+
+### Changes
+- Removed Whirlpool CLI
+- Updated Tor to v0.4.8.11
+- Removed obsolete version field from docker compose files
+- Fixed addrindexrs installation
+- Fixed btc-rpc-ecplorer installation
+- Updated Bitcoin Core to v27.0
+- Removed unnecessary bip39 dependency
+- Updated ZeroMQ
+- Updated other dependencies
+- Raised required Node.js version to v18
+- Made changes to make docker images smaller
+
+## Samourai Dojo v1.24.1
+
+### Notable changes
+This version contains new Whirlpool CLI v1.0.1 which fully uses Soroban (decentralized communication network) to mix with other participants.
+
+### Features
+- [d0edec76](d0edec76) - Updated Whirlpool CLI to v1.0.1
+- [c9c466c8](c9c466c8) - Updated Fulcrum to v 1.10.0
+- [8b62e2aa](8b62e2aa) - Shorten transaction cache lifetime to two days
+- [f86d7229](f86d7229) - Prevent excessive memory usage by bitcoind
+
+### Chores
+- [3d7ba7c9](3d7ba7c9) - Removed unnecessary "async"
+
+## Samourai Dojo v1.23.0
+### Features
+- [f9157373](f9157373) - Added syncMempool() method for better mempool synchronization
+- [81b0a49d](81b0a49d) - Increase asyncPool size in checkUnconfirmed() from 3 to 5
+- [6a4f421f](6a4f421f) - Get block count instead of whole blockchain info
+- [7b143251](7b143251) - Added mempool persistence option
+
+### Bugfixes
+- [ffac3856](ffac3856) - Don't check unconfirmed transactions after start
+- [bb5fee5a](bb5fee5a) - Catch error when checking docker compose version
+- [fe9b7dc3](fe9b7dc3) - Updated bash scripts to use non-TTY docker exec
+- [b446eaa0](b446eaa0) - Fix equality comparison in docker shell script
+
+### Chores
+- [7d5a2201](7d5a2201) - Refine type definitions in mysql-db-wrapper
+- [f70e061b](f70e061b) - Update return type in getTransactionId function
+- [b07787ba](b07787ba) - Updated Tor to v0.4.8.10
+- [197b3096](197b3096) - Updated Whirlpool CLI to v0.10.17.1
+- [8f3dd24b](8f3dd24b) - Updated Fulcrum to v1.9.8
+- [f66dc97e](f66dc97e) - Updated Fee Estimator to v0.5.0
+- [f2b12e08](f2b12e08) - Updated Estimator API
+- [3d722938](3d722938) - Updated dependencies
+
+## Samourai Dojo v1.22.0
+
+### Features
+- [e4a1cadb](e4a1cadb) - updated Node.js docker images to v20
+- [d2fc1fdf](d2fc1fdf) - updated Tor to v0.4.8.9
+- [fe0a7e10](fe0a7e10) - updated Fulcrum to v1.9.7
+- [fd40267d](fd40267d) - updated Bitcoin Core to v26.0
+- [125f8a0c](125f8a0c) - decline connections to unsupported bitcoin clients
+- [4c261818](4c261818) - periodically ban Knots nodes
+- [02b53e77](02b53e77) - make explorer slow-device-mode configurable
+- [f398960c](f398960c) - added new `/seen` endpoint
+
+### Bugfixes
+- [74fcc68b](74fcc68b) - wrap unconfirmed transaction processing in try/catch
+- [b588153d](b588153d) - update DB table banned_addresses
+
+## Samourai Dojo v1.21.0
+
+### Notable changes
+
+#### $1 Fee Estimator
+$1 Fee Estimator has been included into Dojo. Fee estimates calculated by this tool are available on API ([doc](./doc/GET_fees_estimator.md)).
+
+### Features
+- [271dcffe](https://code.samourai.io/dojo/samourai-dojo/-/commit/271dcffe) - updated to BTC-RPC Explorer 3.4.0
+- [47e3d9a3](https://code.samourai.io/dojo/samourai-dojo/-/commit/47e3d9a3) - updated to Tor v0.4.8.5
+- [5f26dd9a](https://code.samourai.io/dojo/samourai-dojo/-/commit/5f26dd9a) - updated tp Fulcrum v1.9.1
+- [5a3c6d95](https://code.samourai.io/dojo/samourai-dojo/-/commit/5a3c6d95) - added $1 Fee Estimator
+- [94e99dae](https://code.samourai.io/dojo/samourai-dojo/-/commit/94e99dae) - adjusted standard fee estimation
+- [8a5da4af](https://code.samourai.io/dojo/samourai-dojo/-/commit/8a5da4af) - updated MariaDB Docker image
+- [23400e24](https://code.samourai.io/dojo/samourai-dojo/-/commit/23400e24) - updated Nginx Docker image
+- [5213ced5](https://code.samourai.io/dojo/samourai-dojo/-/commit/5213ced5) - added ability to connect to standalone MySQL over UNIX socket
+
+### Bugfixes
+- [332ad81f](https://code.samourai.io/dojo/samourai-dojo/-/commit/332ad81f) - store transactions in DB only once
+- [d18d99aa](https://code.samourai.io/dojo/samourai-dojo/-/commit/d18d99aa) - force logs to go into /dev/null
+- [d023b6b7](https://code.samourai.io/dojo/samourai-dojo/-/commit/d023b6b7) - run transaction unconfirmation in pool so the DB is not overwhelmed
+- [b5e3586d](https://code.samourai.io/dojo/samourai-dojo/-/commit/b5e3586d) - fix rescan-blocks script
+
+### Chores
+- [85abb62c](https://code.samourai.io/dojo/samourai-dojo/-/commit/85abb62c) - fix release notes
+- [68b09243](https://code.samourai.io/dojo/samourai-dojo/-/commit/68b09243) - updated dependencies
+- [ace19ebe](https://code.samourai.io/dojo/samourai-dojo/-/commit/ace19ebe) - fix fees docs
+- [21ea8ba4](https://code.samourai.io/dojo/samourai-dojo/-/commit/21ea8ba4) - added additional build stage to Whirlpool dockerfile
+
+
+## Samourai Dojo v1.20.0
+
+### Notable changes
+
+#### Dojo tracker optimizations
+Dojo tracker has optimized to run more efficiently during IBD and in full-mempool environment.
+
+#### Bitcoin Core updated to v25.0
+
+### Breaking
+This version of Dojo requires users to run Node.js v16 or higher. My-dojo (docker setup) users are unaffected by this change.
+
+### Change log
+
+#### Features
+- [MR 292](https://code.samourai.io/dojo/samourai-dojo/-/merge_requests/292) - major tracker optimizations
+- [b4b891a3](https://code.samourai.io/dojo/samourai-dojo/-/commit/b4b891a3) - log error from parallel address derivation service
+- [624eddf8](https://code.samourai.io/dojo/samourai-dojo/-/commit/624eddf8) - adjusted nginx gzip settings
+- [ebb112ea](https://code.samourai.io/dojo/samourai-dojo/-/commit/ebb112ea) - refactored xlatXPUB function
+- [8a2f49d0](https://code.samourai.io/dojo/samourai-dojo/-/commit/8a2f49d0) - added ability to display full tx HEX in DMT
+- [1a868a3e](https://code.samourai.io/dojo/samourai-dojo/-/commit/1a868a3e) - updated to Bitcoin Core v25.0
+- [1e269465](https://code.samourai.io/dojo/samourai-dojo/-/commit/1e269465) - updated Node.js containers to v18
+
+#### Bugfixes
+- [272098d8](https://code.samourai.io/dojo/samourai-dojo/-/commit/272098d8) - properly log mysql lock errors
+- [f79c2ada](https://code.samourai.io/dojo/samourai-dojo/-/commit/f79c2ada) - fixed mysql queries in CLI scripts
+
+#### Chores
+- [76fd4bee](https://code.samourai.io/dojo/samourai-dojo/-/commit/76fd4bee), [26bfd550](https://code.samourai.io/dojo/samourai-dojo/-/commit/26bfd550) - raised IBD limit
+- [7a8d7f53](https://code.samourai.io/dojo/samourai-dojo/-/commit/7a8d7f53) - removed unnecessary promise
+- [880b0430](https://code.samourai.io/dojo/samourai-dojo/-/commit/880b0430) - updated tx cache description
+- [b1f2db09](https://code.samourai.io/dojo/samourai-dojo/-/commit/b1f2db09) - updated Node.js dependencies
+- [79497903](https://code.samourai.io/dojo/samourai-dojo/-/commit/79497903) - updated auth47
+- [66c362ed](https://code.samourai.io/dojo/samourai-dojo/-/commit/66c362ed) - fixed ESlint errors
+- [05ac896f](https://code.samourai.io/dojo/samourai-dojo/-/commit/05ac896f) - removed unnecessary bs58 dependency
+- [88315bb1](https://code.samourai.io/dojo/samourai-dojo/-/commit/88315bb1), [48c9d289](https://code.samourai.io/dojo/samourai-dojo/-/commit/48c9d289) - JSdoc updates
+
+## Samourai Dojo v1.19.2 ##
+
+### Change log ###
+
+#### Changes ####
+- [d4b70286](https://code.samourai.io/dojo/samourai-dojo/-/commit/d4b70286) - tweak IPC for remote importer
+- [fb35ebf9](https://code.samourai.io/dojo/samourai-dojo/-/commit/fb35ebf9) - added IPC to auth REST API
+
+## Samourai Dojo v1.19.1 ##
+
+### Change log ###
+
+#### Fixes ####
+- [b639c60f](https://code.samourai.io/dojo/samourai-dojo/-/commit/b639c60f) - allow apikey to be passed as query parameter
+
+## Samourai Dojo v1.19.0 ##
+
+### Notable changes ###
+
+#### Updated Bitcoin Core v24.0.1 ####
+This version of Bitcoin Core has a support for `-mempoolfullrbf` option. This option is disabled by default in Samourai Dojo.
+
+#### Added option to use Auth47 for DMT auth ####
+Users are now able to add their payment code. Inside `conf/docker-node.conf` just assign your payment code to the `NODE_PAYMENT_CODE` variable.
+
+#### Updated Whirlpool CLI v0.10.16 ####
+This version of WHirlpool CLI brings several stability improvements that will help mixing to keep running even with Tor network disruptions.
+
+### Change log ###
+
+#### Features ####
+- [5115cc46](https://code.samourai.io/dojo/samourai-dojo/-/commit/5115cc46) - updated to Bitcoin Core v24.0.1
+- [f9674dd9](https://code.samourai.io/dojo/samourai-dojo/-/commit/f9674dd9) - updated Whirlpool CLI to v0.10.16
+- [02cc549e](https://code.samourai.io/dojo/samourai-dojo/-/commit/02cc549e) - updated to Tor v0.4.7.13
+- [3df9b526](https://code.samourai.io/dojo/samourai-dojo/-/commit/3df9b526) - updated bitcoinjs-lib
+- [dc0edf9f](https://code.samourai.io/dojo/samourai-dojo/-/commit/dc0edf9f) - added noscript warning to DMT
+- [991546a4](https://code.samourai.io/dojo/samourai-dojo/-/commit/991546a4) - added option to log-in via Auth47
+
+#### Architecture ####
+- [eb4e1ba4](https://code.samourai.io/dojo/samourai-dojo/-/commit/eb4e1ba4) - read address from scriptPubKey object
+- [1a9ae068](https://code.samourai.io/dojo/samourai-dojo/-/commit/1a9ae068) - removed passport.js
+
+#### Other ####
+- [cfa68b01](https://code.samourai.io/dojo/samourai-dojo/-/commit/cfa68b01), [8a72a093](https://code.samourai.io/dojo/samourai-dojo/-/commit/8a72a093) updated Node.js dependencies
+- [2d7e408c](https://code.samourai.io/dojo/samourai-dojo/-/commit/2d7e408c) - fixed ESLint errors
+- [eb2d4c5e](https://code.samourai.io/dojo/samourai-dojo/-/commit/eb2d4c5e) - updated engines field
+- [f3767966](https://code.samourai.io/dojo/samourai-dojo/-/commit/f3767966) - remove basic auth for BTC-RPC Explorer
+- [e5de92d8](https://code.samourai.io/dojo/samourai-dojo/-/commit/e5de92d8) - use custom version of BTC-RPC Explorer to prevent leaks
+- [3675df6f](https://code.samourai.io/dojo/samourai-dojo/-/commit/3675df6f) - inter-process communication for importer
+
+### Credits ###
+- DojoCoder
+- dammkewl
+
+## Samourai Dojo v1.18.1 ##
+
+### Change log ###
+
+#### Bugfixes ####
+- [314f9e7f](https://code.samourai.io/dojo/samourai-dojo/-/commit/314f9e7f) - added fallback for docker compose compatibility
+
+
+## Samourai Dojo v1.18.0 ##
+
+### Notable changes ###
+
+#### Added option to expose Fulcrum to local network ####
+Fulcrum can now be exposed to the local network using the `INDEXER_EXTERNAL` variable in `conf/docker-indexer.conf`.
+Fulcrum will expose both 50001 (TCP) and 50002 (SSL) ports.
+Restart your Dojo to apply this variable change after successfully upgrading.
+
+#### Added option to switch Tor circuits ####
+Dojo CLI now has an option to switch Tor identity. This should make new connections to go over new circuits.
+```shell
+./dojo.sh tor newnym
+```
+
+### Change log ###
+
+#### Features ####
+- [22776e23](https://code.samourai.io/dojo/samourai-dojo/-/commit/22776e23) - added SSL support for Fulcrum
+- [3e22100f](https://code.samourai.io/dojo/samourai-dojo/-/commit/3e22100f) - bump OBFS4
+- [f8de0ba6](https://code.samourai.io/dojo/samourai-dojo/-/commit/f8de0ba6) - bump Tor
+- [c4f6cdfb](https://code.samourai.io/dojo/samourai-dojo/-/commit/c4f6cdfb) - bump Fulcrum
+- [00761e98](https://code.samourai.io/dojo/samourai-dojo/-/commit/00761e98) - bump addrindexrs
+- [122f8cca](https://code.samourai.io/dojo/samourai-dojo/-/commit/122f8cca) - switch Tor circuits via CLI
+- [fa68a361](https://code.samourai.io/dojo/samourai-dojo/-/commit/fa68a361) - expose Fulcrum ports
+
+#### Bugfixes ####
+- [f1d2cfb2](https://code.samourai.io/dojo/samourai-dojo/-/commit/f1d2cfb2) - fixed indexer not starting on docker restart
+- [6f21f4d8](https://code.samourai.io/dojo/samourai-dojo/-/commit/6f21f4d8) - fix location of Fulcrum binaries
+
+#### Architecture ####
+- [4e96448d](https://code.samourai.io/dojo/samourai-dojo/-/commit/4e96448d) - fix docker cleanup
+- [f89fc7f5](https://code.samourai.io/dojo/samourai-dojo/-/commit/f89fc7f5) - let docker stop bitcoind via stopsignal
+- [cc9d4b8c](https://code.samourai.io/dojo/samourai-dojo/-/commit/cc9d4b8c) - use bullseye images instead of buster
+- [a3b32477](https://code.samourai.io/dojo/samourai-dojo/-/commit/a3b32477) - verify addrindexrs release
+- [26228abd](https://code.samourai.io/dojo/samourai-dojo/-/commit/26228abd) - updated scripts to use "docker compose"
+
+#### Other ####
+- [a788d279](https://code.samourai.io/dojo/samourai-dojo/-/commit/a788d279) - update docker installations instructions
+- [fb83db75](https://code.samourai.io/dojo/samourai-dojo/-/commit/fb83db75) - added timeout for retrieval of indexer chaintip
+- [9e26d736](https://code.samourai.io/dojo/samourai-dojo/-/commit/9e26d736) - log response status code
+- [086331ea](https://code.samourai.io/dojo/samourai-dojo/-/commit/086331ea) - updated dependencies
+
+## Samourai Dojo v1.17.0 ##
+
+### Change log ###
+
+#### Architecture ####
+- [9d84bfe6](https://code.samourai.io/dojo/samourai-dojo/-/commit/9d84bfe6) - upgrade Node.js
+- [90c7cd6d](https://code.samourai.io/dojo/samourai-dojo/-/commit/90c7cd6d) - use PM2 for process management
+- [515ae1b6](https://code.samourai.io/dojo/samourai-dojo/-/commit/515ae1b6) - bump block height defining IBD
+
+#### Bugfixes ####
+
+- [757cc927](https://code.samourai.io/dojo/samourai-dojo/-/commit/757cc927) - fix import/rescan with local importer
+- [9aa604c0](https://code.samourai.io/dojo/samourai-dojo/-/commit/9aa604c0) - fix typos
+- [9b11bd56](https://code.samourai.io/dojo/samourai-dojo/-/commit/9b11bd56) - fix DB errors
+
+### Credits ###
+- pajasevi
+- Diverter
 
 ## Samourai Dojo v1.16.1 ##
 

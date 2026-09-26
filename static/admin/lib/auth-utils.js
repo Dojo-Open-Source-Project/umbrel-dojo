@@ -29,8 +29,7 @@ const lib_auth = {
      * Stores access token in session storage
      */
     setAccessToken: (token) => {
-        const now = new Date()
-        sessionStorage.setItem(lib_auth.SESSION_STORE_ACCESS_TOKEN_TS, now.getTime())
+        sessionStorage.setItem(lib_auth.SESSION_STORE_ACCESS_TOKEN_TS, Date.now())
         sessionStorage.setItem(lib_auth.SESSION_STORE_ACCESS_TOKEN, token)
     },
 
@@ -43,8 +42,7 @@ const lib_auth = {
      * Stores refresh token in session storage
      */
     setRefreshToken: (token) => {
-        const now = new Date()
-        sessionStorage.setItem(lib_auth.SESSION_STORE_REFRESH_TOKEN_TS, now.getTime())
+        sessionStorage.setItem(lib_auth.SESSION_STORE_REFRESH_TOKEN_TS, Date.now())
         sessionStorage.setItem(lib_auth.SESSION_STORE_REFRESH_TOKEN, token)
     },
 
@@ -56,15 +54,15 @@ const lib_auth = {
             return
         }
 
-        const now = new Date()
+        const now = Date.now()
         const atts = sessionStorage.getItem(lib_auth.SESSION_STORE_ACCESS_TOKEN_TS)
-        let timeElapsed = (now.getTime() - atts) / 1000
+        let timeElapsed = (now - atts) / 1000
 
         // Refresh the access token if more than 5mn
         if (timeElapsed > 300) {
             // Check if refresh token has expired or is about to expire
             const rtts = sessionStorage.getItem(lib_auth.SESSION_STORE_REFRESH_TOKEN_TS)
-            if ((now.getTime() - rtts) / 1000 > 7200 - 60) {
+            if ((now - rtts) / 1000 > 7200 - 60) {
                 // Force user to sign in again
                 lib_auth.logout()
                 return

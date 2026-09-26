@@ -1,19 +1,3 @@
 #!/bin/bash
 
-cd /home/node/app/accounts
-forever start -c 'node --unhandled-rejections=strict' -a -l /dev/stdout -o /dev/null -e /dev/null index.js
-
-cd /home/node/app/pushtx
-forever start -c 'node --unhandled-rejections=strict' -a -l /dev/stdout -o /dev/null -e /dev/null index.js
-forever start -c 'node --unhandled-rejections=strict' -a -l /dev/stdout -o /dev/null -e /dev/null index-orchestrator.js
-
-cd /home/node/app/tracker
-forever start -c 'node --unhandled-rejections=strict' -a -l /dev/stdout -o /dev/null -e /dev/null index.js
-
-trap "forever stopall && exit 0" SIGINT
-
-# Keep the container up
-while true
-do
-  sleep 1
-done
+exec pm2-runtime --raw "$APP_DIR/pm2.config.cjs"

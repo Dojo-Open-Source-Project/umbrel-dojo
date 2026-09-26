@@ -41,8 +41,8 @@ const screenAddressesToolsScript = {
     },
 
     getExplorerInfo: () => {
-        lib_api.getExplorerPairingInfo().then(explorerInfo => {
-            screenAddressesToolsScript.explorerInfo = explorerInfo
+        lib_api.getPairingInfo().then(pairingInfo => {
+            screenAddressesToolsScript.explorerInfo = pairingInfo.explorer
         }).catch(error => {
             lib_errors.processError(error)
         })

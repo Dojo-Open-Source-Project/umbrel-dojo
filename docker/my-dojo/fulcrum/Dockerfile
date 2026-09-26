@@ -1,10 +1,12 @@
-FROM    debian:buster-slim AS builder
+FROM    debian:trixie-slim AS builder
 
-ENV     INDEXER_VERSION       1.7.0
+ENV     INDEXER_VERSION       2.1.1
+ENV     INDEXER_SHASUMS       Fulcrum-${INDEXER_VERSION}-shasums.txt
+ENV     INDEXER_ASC           ${INDEXER_SHASUMS}.asc
 ENV     INDEXER_URL           https://github.com/cculianu/Fulcrum/releases/download
 ENV     INDEXER_BUILD_AMD64   x86_64-linux
 ENV     INDEXER_BUILD_ARM64   arm64-linux
-ENV     INDEXER_FILES         /var/fulcrum
+ENV     INDEXER_FILES         /usr/fulcrum
 
 RUN     apt-get update && \
         apt-get install -y wget curl gpg gpg-agent
@@ -24,48 +26,48 @@ RUN     set -ex && \
             ;; \
           *) echo >&2 "error: unsupported architecture '$arch' (likely packaging update needed)"; exit 1 ;; \
         esac; \
-        INDEXER_SHASUMS="$INDEXER_FILE.sha256sum"; \
-        INDEXER_ASC="$INDEXER_FILE.asc"; \
         wget -qO $INDEXER_FILE "$INDEXER_URL/v$INDEXER_VERSION/$INDEXER_FILE" && \
-        wget -qO ${INDEXER_FILE}.sha256sum "$INDEXER_URL/v$INDEXER_VERSION/$INDEXER_SHASUMS" && \
-        wget -qO ${INDEXER_FILE}.asc "$INDEXER_URL/v$INDEXER_VERSION/$INDEXER_ASC" && \
+        wget -qO $INDEXER_SHASUMS "$INDEXER_URL/v$INDEXER_VERSION/$INDEXER_SHASUMS" && \
+        wget -qO $INDEXER_ASC "$INDEXER_URL/v$INDEXER_VERSION/$INDEXER_ASC" && \
         curl https://raw.githubusercontent.com/Electron-Cash/keys-n-hashes/master/pubkeys/calinkey.txt | gpg --import && \
         gpg --verify $INDEXER_ASC && \
-        sha256sum -c $INDEXER_SHASUMS && \
+        sha256sum --ignore-missing -c $INDEXER_SHASUMS && \
         tar -xzvf ${INDEXER_FILE} -C "$INDEXER_FILES" --strip-components 1
 
-FROM    debian:buster-slim
+FROM    debian:trixie-slim
 
-ENV     INDEXER_FILES         /var/fulcrum
+ENV     INDEXER_FILES         /usr/fulcrum
 ENV     INDEXER_HOME          /home/fulcrum
+ENV     SSL_CERTFILE          ${INDEXER_HOME}/.fulcrum/fulcrum.crt
+ENV     SSL_KEYFILE           ${INDEXER_HOME}/.fulcrum/fulcrum.key
 
 ARG     FULCRUM_LINUX_GID
 ARG     FULCRUM_LINUX_UID
+
+RUN     apt-get update && \
+        apt-get install -y openssl adduser && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create group and user indexer
 RUN     addgroup --system -gid ${FULCRUM_LINUX_GID} fulcrum && \
         adduser --system --ingroup fulcrum -uid ${FULCRUM_LINUX_UID} fulcrum
 
 # Create data directory
-RUN     mkdir "$INDEXER_HOME/.fulcrum" && \
-        mkdir "$INDEXER_HOME/.fulcrum/db" && \
+RUN     mkdir -p "$INDEXER_HOME/.fulcrum/db" && \
         chown -h fulcrum:fulcrum "$INDEXER_HOME/.fulcrum" && \
         chown -h fulcrum:fulcrum "$INDEXER_HOME/.fulcrum/db"
 
-COPY    --from=builder "$INDEXER_FILES" "$INDEXER_HOME/.fulcrum"
+COPY    --chown=fulcrum:fulcrum --from=builder "$INDEXER_FILES" "$INDEXER_FILES"
 
 # Copy restart script
-COPY    ./restart.sh /restart.sh
-RUN     chown fulcrum:fulcrum /restart.sh && \
-        chmod 777 /restart.sh
+COPY    --chown=fulcrum:fulcrum --chmod=754 ./restart.sh /restart.sh
 
 # Copy fulcrum.conf
-COPY    ./fulcrum.conf /etc/fulcrum.conf
-RUN     chown fulcrum:fulcrum /etc/fulcrum.conf && \
-        chmod 777 /etc/fulcrum.conf
+COPY    --chown=fulcrum:fulcrum ./fulcrum.conf /etc/fulcrum.conf
 
 USER    fulcrum
 
-EXPOSE  50001
+EXPOSE  50001 50002
 
 STOPSIGNAL SIGINT

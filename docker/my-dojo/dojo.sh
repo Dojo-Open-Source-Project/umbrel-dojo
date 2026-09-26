@@ -5,6 +5,18 @@ export DOCKER_BUILDKIT=1
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
+get_docker_compose() {
+  result=$(docker compose version > /dev/null ; echo $?)
+
+    if [ $result -eq 0 ]; then
+      echo "docker compose"
+    else
+      echo "docker-compose"
+    fi
+}
+
+docker_compose=$(get_docker_compose)
+
 # Source a file
 source_file() {
   if [ -f $1 ]; then
@@ -17,17 +29,26 @@ source_file() {
 }
 
 # Source config files
-source_file "$DIR/conf/docker-whirlpool.conf"
+source_file "$DIR/conf/docker-soroban.conf"
 source_file "$DIR/conf/docker-indexer.conf"
 source_file "$DIR/conf/docker-bitcoind.conf"
 source_file "$DIR/conf/docker-explorer.conf"
 source_file "$DIR/conf/docker-common.conf"
 source_file "$DIR/conf/docker-tor.conf"
+source_file "$DIR/conf/docker-nginx.conf"
 source_file "$DIR/.env"
 
 # Export some variables for compose
-export BITCOIND_RPC_EXTERNAL_IP
-export TOR_SOCKS_PORT
+export BITCOIND_RPC_EXTERNAL_IP INDEXER_EXTERNAL_IP TOR_SOCKS_PORT BITCOIND_BLOCKS_DIR
+
+if [ "$EXPLORER_INSTALL" == "on" ] && [ "$EXPLORER_TYPE" == "mempool_space" ]; then
+  export BITCOIND_IP INDEXER_IP INDEXER_RPC_PORT BITCOIND_RPC_USER BITCOIND_RPC_PASSWORD BITCOIND_RPC_PORT
+  export MEMPOOL_MYSQL_USER MEMPOOL_MYSQL_PASS MEMPOOL_MYSQL_ROOT_PASSWORD MEMPOOL_MYSQL_DATABASE
+fi
+
+if [ "$NGINX_EXTERNAL" == "on" ]; then
+  export NGINX_EXTERNAL_IP NGINX_EXTERNAL_PORT
+fi
 
 # Select YAML files
 select_yaml_files() {
@@ -42,20 +63,36 @@ select_yaml_files() {
   fi
 
   if [ "$EXPLORER_INSTALL" == "on" ]; then
-    yamlFiles="$yamlFiles -f $DIR/overrides/explorer.install.yaml"
-  fi
-
-  if [ "$INDEXER_INSTALL" == "on" ]; then
-    if [ "$INDEXER_TYPE" == "addrindexrs" ]; then
-      yamlFiles="$yamlFiles -f $DIR/overrides/indexer.install.yaml"
-    elif [ "$INDEXER_TYPE" == "fulcrum" ]; then
-      yamlFiles="$yamlFiles -f $DIR/overrides/fulcrum.install.yaml"
+    if [ "$EXPLORER_TYPE" == "btc_rpc_explorer" ]; then
+      yamlFiles="$yamlFiles -f $DIR/overrides/explorer.install.yaml"
+    elif [ "$EXPLORER_TYPE" == "mempool_space" ]; then
+      yamlFiles="$yamlFiles -f $DIR/overrides/mempool.install.yaml"
     fi
   fi
 
-  if [ "$WHIRLPOOL_INSTALL" == "on" ]; then
-    yamlFiles="$yamlFiles -f $DIR/overrides/whirlpool.install.yaml"
+  if [ "$INDEXER_INSTALL" == "on" ]; then
+    if [ "$INDEXER_TYPE" == "electrs" ]; then
+      yamlFiles="$yamlFiles -f $DIR/overrides/electrs.install.yaml"
+    elif [ "$INDEXER_TYPE" == "fulcrum" ]; then
+      yamlFiles="$yamlFiles -f $DIR/overrides/fulcrum.install.yaml"
+    fi
+
+    if [ "$INDEXER_EXTERNAL" == "on" ]; then
+      if [ "$INDEXER_TYPE" == "electrs" ]; then
+        yamlFiles="$yamlFiles -f $DIR/overrides/electrs.port.expose.yaml"
+      elif [ "$INDEXER_TYPE" == "fulcrum" ]; then
+        yamlFiles="$yamlFiles -f $DIR/overrides/fulcrum.port.expose.yaml"
+      fi
+    fi
   fi
+
+  if [ "$SOROBAN_INSTALL" == "on" ]; then
+    yamlFiles="$yamlFiles -f $DIR/overrides/soroban.install.yaml"
+  fi
+
+  if [ "$NGINX_EXTERNAL" == "on" ]; then
+      yamlFiles="$yamlFiles -f $DIR/overrides/nginx.port.expose.yaml"
+    fi
 
   # Return yamlFiles
   echo "$yamlFiles"
@@ -64,13 +101,13 @@ select_yaml_files() {
 # Docker build
 docker_build() {
   yamlFiles=$(select_yaml_files)
-  eval "docker-compose $yamlFiles build --parallel $@"
+  eval "$docker_compose $yamlFiles build --parallel $@"
 }
 
 # Docker up
 docker_up() {
   yamlFiles=$(select_yaml_files)
-  eval "docker-compose $yamlFiles up $@ -d"
+  eval "$docker_compose $yamlFiles up $@ -d"
 }
 
 # Start
@@ -95,51 +132,13 @@ stop() {
     echo "Dojo is already stopped."
     exit
   fi
-  # Shutdown the bitcoin daemon
-  if [ "$BITCOIND_INSTALL" == "on" ]; then
-    # Renewal of bitcoind onion address
-    if [ "$BITCOIND_LISTEN_MODE" == "on" ]; then
-      if [ "$BITCOIND_EPHEMERAL_HS" = "on" ]; then
-        $( docker exec -it tor rm -rf /var/lib/tor/hsv3bitcoind ) &> /dev/null
-      fi
-    fi
-    # Stop the bitcoin daemon
-    $( docker exec -it bitcoind  bitcoin-cli \
-      -rpcconnect=bitcoind \
-      --rpcport="$BITCOIND_RPC_PORT" \
-      --rpcuser="$BITCOIND_RPC_USER" \
-      --rpcpassword="$BITCOIND_RPC_PASSWORD" \
-      stop ) &> /dev/null
-    # Check if the bitcoin daemon is still up
-    # wait 3mn max
-    i="0"
-    nbIters=$(( $BITCOIND_SHUTDOWN_DELAY / 10 ))
-    while [ $i -lt $nbIters ]
-    do
-      echo "Waiting for shutdown of Bitcoin server."
-      # Check if bitcoind rpc api is responding
-      $( timeout -k 12 10 docker exec -it bitcoind  bitcoin-cli \
-        -rpcconnect=bitcoind \
-        --rpcport="$BITCOIND_RPC_PORT" \
-        --rpcuser="$BITCOIND_RPC_USER" \
-        --rpcpassword="$BITCOIND_RPC_PASSWORD" \
-        getblockchaininfo &> /dev/null ) &> /dev/null
-      # rpc api is down
-      if [[ $? -gt 0 ]]; then
-        echo "Bitcoin server stopped."
-        break
-      fi
-      i=$[$i+1]
-    done
-    # Bitcoin daemon is still up
-    # => force close
-    if [ $i -eq $nbIters ]; then
-      echo "Force shutdown of Bitcoin server."
-    fi
+  # Renewal of bitcoind onion address
+  if [ "$BITCOIND_INSTALL" == "on" ] && [ "$BITCOIND_LISTEN_MODE" == "on" ] && [ "$BITCOIND_EPHEMERAL_HS" == "on" ]; then
+    docker exec -i tor rm -rf /var/lib/tor/hsv3bitcoind &> /dev/null
   fi
   # Stop docker containers
   yamlFiles=$(select_yaml_files)
-  eval "docker-compose $yamlFiles stop"
+  eval "$docker_compose $yamlFiles stop"
 }
 
 # Restart dojo
@@ -259,7 +258,7 @@ uninstall() {
 
   if [ $launchUninstall -eq 0 ]; then
     yamlFiles=$(select_yaml_files)
-    eval "docker-compose $yamlFiles down --rmi all"
+    eval "$docker_compose $yamlFiles down --rmi all"
     docker volume prune -f
     return 0
   else
@@ -267,30 +266,15 @@ uninstall() {
   fi
 }
 
-# Clean-up (remove old docker images)
-del_images_for() {
-  # $1: image name
-  # $2: most recent version of the image (do not delete this one)
-  docker image ls | grep "$1" | sed "s/ \+/,/g" | cut -d"," -f2 | while read -r version ; do
-    if [ "$2" != "$version" ]; then
-      docker image rm -f "$1:$version"
-    fi
-  done
-}
-
 clean() {
-  del_images_for samouraiwallet/dojo-db "$DOJO_DB_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-bitcoind "$DOJO_BITCOIND_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-explorer "$DOJO_EXPLORER_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-nodejs "$DOJO_NODEJS_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-nginx "$DOJO_NGINX_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-tor "$DOJO_TOR_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-indexer "$DOJO_INDEXER_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-fulcrum "$DOJO_FULCRUM_VERSION_TAG"
-  del_images_for samouraiwallet/dojo-whirlpool "$DOJO_WHIRLPOOL_VERSION_TAG"
-  docker container prune -f
-  docker volume prune -f
-  docker image prune -f
+  # remove unused docker containers
+  docker rm -v $(docker ps --all --format "{{.ID}} {{.Image}}" --filter "status=exited" | grep "samouraiwallet/dojo-" | cut -d" " -f1) 2> /dev/null
+  # remove unused docker volumes
+  docker volume rm $(docker volume ls --format "{{.Name}}" | grep "my-dojo_data") 2> /dev/null
+  # remove dangling docker images
+  docker rmi $(docker images --filter "dangling=true" -q) 2> /dev/null
+  # remove unused docker images
+  docker rmi $(docker images "samouraiwallet/dojo-*" -q) 2> /dev/null
 }
 
 # Upgrade
@@ -343,12 +327,14 @@ upgrade() {
     # Load env vars for compose files
     source_file "$DIR/conf/docker-bitcoind.conf"
     export BITCOIND_RPC_EXTERNAL_IP
+    source_file "$DIR/conf/docker-indexer.conf"
+    export INDEXER_EXTERNAL_IP
     source_file "$DIR/conf/docker-tor.conf"
     export TOR_SOCKS_PORT
     # Rebuild the images (with or without cache)
     if [ $noCache -eq 0 ]; then
       echo -e "\nDeleting Dojo containers and images."
-      eval "docker-compose $yamlFiles down --rmi all"
+      eval "$docker_compose $yamlFiles down --rmi all"
     fi
     echo -e "\nStarting the upgrade of Dojo.\n"
     if [ $noCache -eq 0 ]; then
@@ -397,12 +383,6 @@ onion() {
     echo " "
   fi
 
-  if [ "$WHIRLPOOL_INSTALL" == "on" ]; then
-    V3_ADDR_WHIRLPOOL=$( docker exec -it tor cat /var/lib/tor/hsv3whirlpool/hostname )
-    echo "Your private Whirlpool client (do not share) = $V3_ADDR_WHIRLPOOL"
-    echo " "
-  fi
-
   if [ "$BITCOIND_INSTALL" == "on" ]; then
     if [ "$BITCOIND_LISTEN_MODE" == "on" ]; then
       V3_ADDR_BTCD=$( docker exec -it tor cat /var/lib/tor/hsv3bitcoind/hostname )
@@ -412,11 +392,15 @@ onion() {
   fi
 
   if [ "$INDEXER_INSTALL" == "on" ]; then
-    if [ "$INDEXER_TYPE" == "fulcrum" ]; then
-      V3_ADDR_FULCRUM=$( docker exec -it tor cat /var/lib/tor/hsv3fulcrum/hostname )
-      echo "Fulcrum hidden service address = $V3_ADDR_FULCRUM"
-      echo " "
-    fi
+    V3_ADDR_ELECTRUM=$( docker exec -it tor cat /var/lib/tor/hsv3electrum/hostname )
+    echo "Electrum server hidden service address = $V3_ADDR_ELECTRUM"
+    echo " "
+  fi
+
+  if [ "$SOROBAN_INSTALL" == "on" ]; then
+    V3_ADDR_SOROBAN=$( docker exec -it tor cat /var/lib/tor/hsv3soroban/hostname )
+    echo "Soroban RPC API = $V3_ADDR_SOROBAN"
+    echo " "
   fi
 }
 
@@ -425,26 +409,14 @@ version() {
   echo "Dojo v$DOJO_VERSION_TAG"
 }
 
-# Interact with whirlpool-cli
-whirlpool() {
-  if [ "$WHIRLPOOL_INSTALL" == "off" ]; then
-    echo -e "Command not supported for your setup.\nCause: Your Dojo is not running a whirlpool client"
-  fi
-
+tor() {
   case $1 in
-    apikey )
-      API_KEY=$( docker exec -it whirlpool cat /home/whirlpool/.whirlpool-cli/whirlpool-cli-config.properties | grep cli.apiKey= | cut -c 12-)
-      echo "$API_KEY"
-      ;;
-    reset )
-      eval "docker exec -it whirlpool rm -f /home/whirlpool/.whirlpool-cli/*.json"
-      eval "docker exec -it whirlpool rm -f /home/whirlpool/.whirlpool-cli/whirlpool-cli-config.properties"
-      yamlFiles=$(select_yaml_files)
-      eval "docker-compose $yamlFiles restart whirlpool"
+    newnym )
+      echo "echo -e 'AUTHENTICATE\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 9051" | eval "docker exec -i tor bash"
       ;;
     * )
-      echo -e "Unkonwn action for the whirlpool command"
-      ;;
+      echo -e "Unknown action for the tor command"
+    ;;
   esac
 }
 
@@ -452,9 +424,9 @@ whirlpool() {
 display_logs() {
   yamlFiles=$(select_yaml_files)
   if [ $2 -eq 0 ]; then
-    docker-compose $yamlFiles logs --tail=50 --follow $1
+    $docker_compose $yamlFiles logs --tail=50 --follow $1
   else
-    docker-compose $yamlFiles logs --tail=$2 $1
+    $docker_compose $yamlFiles logs --tail=$2 $1
   fi
 }
 
@@ -462,7 +434,7 @@ logs() {
   source_file "$DIR/conf/docker-bitcoind.conf"
   source_file "$DIR/conf/docker-indexer.conf"
   source_file "$DIR/conf/docker-explorer.conf"
-  source_file "$DIR/conf/docker-whirlpool.conf"
+  source_file "$DIR/conf/docker-soroban.conf"
   source_file "$DIR/conf/docker-common.conf"
 
   case $1 in
@@ -477,31 +449,32 @@ logs() {
       fi
       ;;
     indexer )
-      if [ "$INDEXER_INSTALL" == "on" ] && [ "$INDEXER_TYPE" == "addrindexrs" ]; then
-        display_logs $1 $2
+      if [ "$INDEXER_INSTALL" == "on" ]; then
+        if [ "$INDEXER_TYPE" == "electrs" ]; then
+          display_logs "electrs" $2
+        elif [ "$INDEXER_TYPE" == "fulcrum" ]; then
+          display_logs "fulcrum" $2
+        fi
       else
         echo -e "Command not supported for your setup.\nCause: Your Dojo is not running the internal indexer"
       fi
       ;;
-    fulcrum )
-      if [ "$INDEXER_INSTALL" == "on" ] && [ "$INDEXER_TYPE" == "fulcrum" ]; then
-        display_logs $1 $2
-      else
-        echo -e "Command not supported for your setup.\nCause: Your Dojo is not running the Fulcrum indexer"
-      fi
-      ;;
     explorer )
       if [ "$EXPLORER_INSTALL" == "on" ]; then
-        display_logs $1 $2
+        if [ "$EXPLORER_TYPE" == "btc_rpc_explorer" ]; then
+          display_logs $1 $2
+        elif [ "$EXPLORER_TYPE" == "mempool_space" ]; then
+          display_logs "mempool_api mempool_db mempool_web" $2
+        fi
       else
         echo -e "Command not supported for your setup.\nCause: Your Dojo is not running the internal block explorer"
       fi
       ;;
-    whirlpool )
-      if [ "$WHIRLPOOL_INSTALL" == "on" ]; then
+    soroban )
+      if [ "$SOROBAN_INSTALL" == "on" ]; then
         display_logs $1 $2
       else
-        echo -e "Command not supported for your setup.\nCause: Your Dojo is not running a whirlpool client"
+        echo -e "Command not supported for your setup.\nCause: Your Dojo is not running a Soroban instance"
       fi
       ;;
     * )
@@ -510,17 +483,23 @@ logs() {
         services="$services bitcoind"
       fi
       if [ "$EXPLORER_INSTALL" == "on" ]; then
-        services="$services explorer"
+        if [ "$EXPLORER_TYPE" == "btc_rpc_explorer" ]; then
+          services="$services explorer"
+        elif [ "$EXPLORER_TYPE" == "mempool_space" ]; then
+          services="$services mempool_api"
+          services="$services mempool_db"
+          services="$services mempool_web"
+        fi
       fi
       if [ "$INDEXER_INSTALL" == "on" ]; then
-        if [ "$INDEXER_TYPE" == "addrindexrs" ]; then
-          services="$services indexer"
+        if [ "$INDEXER_TYPE" == "electrs" ]; then
+          services="$services electrs"
         elif [ "$INDEXER_TYPE" == "fulcrum" ]; then
           services="$services fulcrum"
         fi
       fi
-      if [ "$WHIRLPOOL_INSTALL" == "on" ]; then
-        services="$services whirlpool"
+      if [ "$SOROBAN_INSTALL" == "on" ]; then
+        services="$services soroban"
       fi
       display_logs "$services" $2
       ;;
@@ -555,11 +534,10 @@ help() {
   echo "                                  dojo.sh logs db             : display the logs of the MySQL database"
   echo "                                  dojo.sh logs tor            : display the logs of tor"
   echo "                                  dojo.sh logs nginx          : display the logs of nginx"
-  echo "                                  dojo.sh logs indexer        : display the logs of the internal indexer"
-  echo "                                  dojo.sh logs fulcrum        : display the logs of the Fulcrum indexer"
+  echo "                                  dojo.sh logs indexer        : display the logs of the internal electrum server"
   echo "                                  dojo.sh logs node           : display the logs of NodeJS modules (API, Tracker, PushTx API, Orchestrator)"
   echo "                                  dojo.sh logs explorer       : display the logs of the Explorer"
-  echo "                                  dojo.sh logs whirlpool      : display the logs of the Whirlpool client"
+  echo "                                  dojo.sh logs soroban        : display the logs of the Soroban instance"
   echo " "
   echo "                                Available options:"
   echo "                                  -n [VALUE]                  : display the last VALUE lines"
@@ -582,11 +560,10 @@ help() {
   echo " "
   echo "  version                       Display the version of dojo"
   echo " "
-  echo "  whirlpool [action]            Interact with the internal whirlpool-cli mdule."
+  echo "  tor [action]                  Interact with the Tor module."
   echo " "
   echo "                                Available actions:"
-  echo "                                  apikey : display the API key generated by whirlpool-cli."
-  echo "                                  reset  : reset the whirlpool-cli instance (delete configuration file)."
+  echo "                                  newnym : switch to clean circuits, so new application requests don't share any circuits with old ones."
 }
 
 
@@ -678,7 +655,7 @@ case "$subcommand" in
   version )
     version
     ;;
-  whirlpool )
-    whirlpool "$@"
-    ;;
+  tor )
+      tor "$@"
+      ;;
 esac

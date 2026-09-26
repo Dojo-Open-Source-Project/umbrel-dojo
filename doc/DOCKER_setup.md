@@ -5,8 +5,8 @@ MyDojo is a set of Docker containers providing a full Samourai backend composed 
 * a backend database,
 * backend modules with an API accessible as a static Tor hidden service,
 * a maintenance tool accessible through a Tor web browser,
-* a block explorer ([BTC RPC Explorer](https://github.com/janoside/btc-rpc-explorer)) accessible as a static Tor hidden service.
-* an optional indexer of Bitcoin addresses ([addrindexrs](https://code.samourai.io/dojo/addrindexrs)) providing fast and private rescans of HD accounts and loose addresses.
+* a block explorer ([BTC RPC Explorer](https://github.com/Dojo-Open-Source-Project/btc-rpc-explorer)) accessible as a static Tor hidden service.
+* an optional indexer of Bitcoin addresses ([addrindexrs](https://github.com/Dojo-Open-Source-Project/addrindexrs)) providing fast and private rescans of HD accounts and loose addresses.
 
 
 ## Table of Content ##
@@ -26,44 +26,44 @@ MyDojo is a set of Docker containers providing a full Samourai backend composed 
 
 ## Architecture ##
 
-
-  ------------------    --------------------    ---------------     -----------------------
- |  Mobile Wallets  |  | Bitcoin full nodes |  | Whirlpool GUI |   | Whirlpool Coordinator |
-  ------------------    --------------------    ---------------     -----------------------
-          |_______________________|____________________|_______________________|
+```
+  ------------------    --------------------
+ |  Mobile Wallets  |  | Bitcoin full nodes |
+  ------------------    --------------------
+          |_______________________|__________
                                             |
                                       -------------
                                      |             |
-              ---------------------- | Tor network |
-             |                       |             |
-             |                        ------------
-             |                              |
-             |                              | (Tor hidden services)
-       _____ | ____________________________ | _________________________________________
-      |      |          |                   |                                          |
-      |      |          |               ---------                              dmznet  |
-      |      |          |   -----------|   Tor   |------------------------             |
-      |      |          |  |            ---------                         |            |
-      |      |      ---------                                             |            |
-      |      |     |  nginx  | - - - - - - - - - - - - - - - - - - - - - -|- - - - - - |
-      |      |      ---------                                             |            |
-      |      |       |  |  |                                              |            |
-      |      |    ---   |   ----------------------------                  |            |
-      |      |   |      |         |                     |                 |            |
-      |   -----------   |     ----------            ----------        ----------       |
-      |  | whirlpool |  |    |  Nodejs  |----------| Explorer |------| Bitcoind |      |
-      |   -----------   |     ----------            ----------        ----------       |
+                                     | Tor network |
+                                     |             |
+                                      ------------
+                                            |
+                                            | (Tor hidden services)
+       ____________________________________ | _________________________________________
+      |                 |                   |                                          |
+      |                 |               ---------                              dmznet  |
+      |                 |   -----------|   Tor   |------------------------             |
+      |                 |  |            ---------                         |            |
+      |             ---------                                             |            |
+      |            |  nginx  | - - - - - - - - - - - - - - - - - - - - - -|- - - - - - |
+      |             ---------                                             |            |
+      |                 |  |                                              |            |
+      |                 |   ----------------------------                  |            |
+      |                 |         |                     |                 |            |
+      |                 |     ----------            ----------        ----------       |
+      |                 |    |  Nodejs  |----------| Explorer |------| Bitcoind |      |
+      |                 |     ----------            ----------        ----------       |
       |                 |         |   |                 |                 |            |
       |                 |         |    -------          |                 |            |
       |                 |         |           |         |                 |            |
       |                 |     ----------      |     ----------            |            |
       |                 |    |  MySQL   |      ----|  Indexer |-----------             |
       |                 |     ----------            ----------                         |
-      |        whirlnet |                                                      dojonet |
+      |                 |                                                      dojonet |
       |_________________|______________________________________________________________|
         Host machine
 
-
+```
 
 
 <a name="requirements"/>
@@ -83,13 +83,14 @@ MyDojo is a set of Docker containers providing a full Samourai backend composed 
 
 ## Configuration files ##
 
-Each new release of Dojo is packaged with 7 template files stored in the `<dojo_dir>/docker/my-dojo/conf` directory:
+Each new release of Dojo is packaged with 8 template files stored in the `<dojo_dir>/docker/my-dojo/conf` directory:
 - docker-common.conf.tpl
 - docker-bitcoin.conf.tpl
 - docker-explorer.conf.tpl
 - docker-indexer.conf.tpl
 - docker-mysql.conf.tpl
 - docker-node.conf.tpl
+- docker-soroban.conf.tpl
 - docker-tor.conf.tpl
 
 These template files define default values for configuration options of your Dojo.
@@ -109,13 +110,15 @@ Most options provided in the configuration files can be later modified. New valu
 
 ## First-time Setup ##
 
-For Ubuntu 16, see this detailed [installation and upgrade guide](./DOCKER_ubuntu_setup.MD).
+For Ubuntu 16, see this detailed [installation and upgrade guide](./DOCKER_ubuntu_setup.md).
 
 For MacOS, see this detailed [installation guide](./DOCKER_mac_setup.MD).
 
 For Synology, see this detailed [installation guide](./DOCKER_synology_setup.md).
 
-For Raspberry Pi4 and Odroid N2, see the [Ronin Dojo Project](https://code.samourai.io/ronindojo/RoninDojo)
+For Raspberry Pi4 and Odroid N2, see the [Ronin Dojo Project](https://wiki.ronindojo.io/en/home).
+
+To copy blockchain or Fulcrum data from an existing node, see [Copying data from an existing node](./DOCKER_data_existing_node.md).
 
 
 This procedure allows to install a new Dojo from scratch.
@@ -124,7 +127,7 @@ This procedure allows to install a new Dojo from scratch.
 
 * Install [Tor Browser](https://www.torproject.org/projects/torbrowser.html.en) on the host machine.
 
-* Download the most recent release of Dojo from [Gitlab](https://code.samourai.io/dojo/samourai-dojo/-/archive/master/samourai-dojo-master.zip)
+* Download the most recent release of Dojo from [Releases](https://github.com/Dojo-Open-Source-Project/samourai-dojo/releases)
 
 * Uncompress the archive on the host machine in a temporary directory of your choice (named `<tmp_dir>` in this doc)
 
@@ -154,14 +157,16 @@ This procedure allows to install a new Dojo from scratch.
     These parameters will protect the access to your Dojo. Be sure to provide alphanumeric values with enough entropy.
 
   * Edit docker-explorer.conf.tpl and provide a new value for the following parameter:
-      * `EXPLORER_KEY` = password that will be required to access the block explorer,
       * If you want to deactivate the block explorer, set the value of `EXPLORER_INSTALL` to `off`.
     See this [section](#explorer) for more details about the block explorer.
+
+  * Edit docker-soroban.conf.tpl and provide a new value for the following parameters:
+      * If you want to deactivate the Soroban instance, set the value of `SOROBAN_INSTALL` to `off`.
+      * If you want to allow others users to access the Soroban network through your Soroban instance (through a dedicated onion address), set the value of `SOROBAN_ANNOUNCE` to `on`.
 
 * Dojo provides a few additional settings for advanced setups:
   * installation of an address indexer used for fast imports and rescans,
   * support of an external electrum server (ElectrumX or electrs) used for fast imports and rescans,
-  * installation of a Whirlpool client,
   * static onion address for your full node,
   * bitcoind RPC API exposed to external apps,
   * use of an external full node,
@@ -211,7 +216,7 @@ This procedure allows to upgrade your Dojo with a new version.
 ./dojo.sh stop
 ```
 
-* Download the most recent release of Dojo from [Gitlab](https://code.samourai.io/dojo/samourai-dojo/-/releases)
+* Download the most recent release of Dojo from [Releases](https://github.com/Dojo-Open-Source-Project/samourai-dojo/releases)
 
 * Uncompress the archive on the host machine in a temporary directory of your choice (named `<tmp_dir>` in this doc)
 
@@ -260,7 +265,7 @@ Available commands:
                                   dojo.sh logs indexer        : display the logs of the internal indexer
                                   dojo.sh logs nodejs         : display the logs of NodeJS modules (API, Tracker, PushTx API, Orchestrator)
                                   dojo.sh logs explorer       : display the logs of the Explorer
-                                  dojo.sh logs whirlpool      : display the logs of the Whirlpool client
+                                  dojo.sh logs soroban        : display the logs of the Soroban instance
 
                                 Available options:
                                   -n [VALUE]                  : display the last VALUE lines
@@ -279,11 +284,6 @@ Available commands:
 
   version                       Display the version of dojo.
 
-  whirlpool [action]            Interact with the internal whirlpool-cli mdule."
-
-                                Available actions:"
-                                  apikey : display the API key generated by whirlpool-cli."
-                                  reset  : reset the whirlpool-cli instance (delete configuration file)."
 ```
 
 
@@ -309,8 +309,6 @@ You can retrieve the onion address of the block explorer with the command
 ```sh
 ./dojo.sh onion
 ```
-
-Sign in with a login (can be any value) and the password set in your Dojo configuration (value entered for `EXPLORER_KEY`).
 
 Notes:
 
@@ -352,10 +350,6 @@ If OXT is selected as the default source for imports, OXT clearnet API is access
 The maintenance tool is accessed as a Tor hidden service (static onion address).
 
 The block explorer is accessed as a Tor hidden service (static onion address).
-
-The Whirlpool API  is accessed as a Tor hidden service (static onion address).
-
-The Whirlpool client connects to the Whirlpool Coordinator hidden service.
 
 The Bitcoin node only allows incoming connections from Tor (ephemeral onion address).
 

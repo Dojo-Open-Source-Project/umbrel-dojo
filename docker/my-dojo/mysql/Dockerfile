@@ -1,16 +1,18 @@
-FROM    mariadb:10.7.1
+FROM    mariadb:12.1.2
 
-# Copy mysql config
-COPY    ./docker/my-dojo/mysql/mysql-low_mem.cnf /etc/mysql/conf.d/mysql-dojo.cnf
+ENV     MARIADB_AUTO_UPGRADE=true
 
-# Copy update-db script
-COPY    ./docker/my-dojo/mysql/update-db.sh /update-db.sh
+# MariaDB must read this, but should not modify it
+COPY    --chown=root:mysql --chmod=0440 \
+        ./docker/my-dojo/mysql/mysql-dojo.cnf \
+        /etc/mysql/conf.d/mysql-dojo.cnf
 
-RUN     chmod u+x /update-db.sh && \
-        chmod g+x /update-db.sh
+# Executable by root and the mysql group
+COPY    --chown=root:mysql --chmod=0550 \
+        ./docker/my-dojo/mysql/update-db.sh \
+        /update-db.sh
 
-# Copy content of mysql scripts into /docker-entrypoint-initdb.d
-COPY    ./db-scripts/ /docker-entrypoint-initdb.d
-
-# Remove template extension from SQL init schema
-RUN     bash -c 'for f in /docker-entrypoint-initdb.d/*.tpl; do mv -- "$f" "${f%.tpl}"; done'
+# MariaDB initialization scripts only need to be readable
+COPY    --chown=root:mysql --chmod=0440 \
+        ./db-scripts/*.sql \
+        /docker-entrypoint-initdb.d/

@@ -1,56 +1,54 @@
 {
-  "name": "samourai-dojo",
-  "version": "1.16.1",
-  "description": "Backend server for Samourai Wallet",
-  "main": "accounts/index.js",
-  "engines": {
-    "node": "14.x.x"
-  },
-  "type": "module",
-  "scripts": {
-    "test": "mocha --recursive --reporter spec",
-    "lint": "eslint --ext .js accounts/ lib/ pushtx/ tracker/ scripts/ keys/ test/ docker/ static/"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@code.samourai.io:dojo/samourai-dojo.git"
-  },
-  "author": "Katana Cryptographic Ltd.",
-  "license": "AGPL-3.0-only",
-  "homepage": "https://code.samourai.io/dojo/samourai-dojo",
-  "dependencies": {
-    "@samouraiwallet/electrum-client": "1.2.4",
-    "@tinyhttp/app": "2.0.20",
-    "async-sema": "3.1.1",
-    "axios": "0.27.2",
-    "bip32": "3.0.1",
-    "bip39": "3.0.4",
-    "bitcoinjs-lib": "6.0.1",
-    "bitcoinjs-message": "2.2.0",
-    "bs58": "5.0.0",
-    "bs58check": "2.1.2",
-    "helmet": "5.1.0",
-    "jsonwebtoken": "8.5.1",
-    "lodash.clonedeep": "4.5.0",
-    "milliparsec": "2.2.1",
-    "mysql2": "2.3.3",
-    "nocache": "3.0.4",
-    "passport": "0.4.1",
-    "passport-localapikey-update": "0.6.0",
-    "quick-lru": "6.1.1",
-    "rpc-bitcoin": "2.0.0",
-    "sirv": "2.0.2",
-    "socks-proxy-agent": "6.2.0",
-    "tiny-secp256k1": "2.2.1",
-    "validator": "13.7.0",
-    "websocket": "1.0.34",
-    "workerpool": "6.2.1",
-    "zeromq": "6.0.0-beta.5"
-  },
-  "devDependencies": {
-    "eslint": "^8.16.0",
-    "eslint-plugin-import": "^2.26.0",
-    "eslint-plugin-unicorn": "^42.0.0",
-    "mocha": "^10.0.0"
-  }
+	"name": "samourai-dojo",
+	"version": "1.29.3",
+	"description": "Backend server for Samourai Wallet",
+	"main": "accounts/index.js",
+	"engines": {
+		"node": ">=24.x.x"
+	},
+	"type": "module",
+	"scripts": {
+		"test": "mocha --recursive --reporter spec",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write --unsafe ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Dojo-Open-Source-Project/samourai-dojo.git"
+	},
+	"author": "Katana Cryptographic Ltd.",
+	"license": "AGPL-3.0-only",
+	"homepage": "https://github.com/Dojo-Open-Source-Project/samourai-dojo",
+	"dependencies": {
+		"@dojo-tools/auth47": "2.0.0",
+		"@dojo-tools/bitcoin-rpc": "1.0.0",
+		"@dojo-tools/bitcoinjs-message": "4.0.0",
+		"@dojo-tools/electrum-client": "2.0.0",
+		"@dojo-tools/next-block-estimator": "1.0.0",
+		"@tinyhttp/app": "2.3.1",
+		"async-sema": "3.1.1",
+		"bip32": "4.0.0",
+		"bitcoinjs-lib": "6.1.7",
+		"bs58check": "4.0.0",
+		"helmet": "7.1.0",
+		"jsonwebtoken": "9.0.3",
+		"lodash.clonedeep": "4.5.0",
+		"milliparsec": "3.0.0",
+		"mysql2": "3.22.2",
+		"nocache": "4.0.0",
+		"quick-lru": "7.3.0",
+		"sirv": "2.0.4",
+		"socks": "2.8.7",
+		"soroban-client-nodejs": "1.0.0",
+		"tiny-secp256k1": "2.2.4",
+		"undici": "8.1.0",
+		"validator": "13.15.26",
+		"websocket": "1.0.35",
+		"workerpool": "10.0.2",
+		"zeromq": "6.5.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.12",
+		"mocha": "^10.8.2"
+	}
 }

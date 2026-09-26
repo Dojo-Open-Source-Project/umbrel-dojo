@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Prevent excessive memory usage
+export MALLOC_ARENA_MAX=1
+
 # Generate RPC auth payload
 BITCOIND_RPC_AUTH=$(./rpcauth.py $BITCOIND_RPC_USER $BITCOIND_RPC_PASSWORD)
 
@@ -28,13 +31,19 @@ bitcoind_options=(
   -rpcauth=$BITCOIND_RPC_AUTH
   -server=1
   -txindex=1
+  -privatebroadcast=1
   -zmqpubhashblock=tcp://0.0.0.0:9502
   -zmqpubrawtx=tcp://0.0.0.0:9501
 )
 
+if [ "$BITCOIND_PERSIST_MEMPOOL" == "on" ]; then
+  bitcoind_options+=(-persistmempool=1)
+fi
+
 if [ "$BITCOIND_LISTEN_MODE" == "on" ]; then
   bitcoind_options+=(-listen=1)
   bitcoind_options+=(-bind="$NET_DOJO_BITCOIND_IPV4")
+  bitcoind_options+=(-bind="$NET_DOJO_BITCOIND_IPV4:8334=onion")
   bitcoind_options+=(-externalip=$(cat /var/lib/tor/hsv3bitcoind/hostname))
 fi
 
@@ -47,8 +56,24 @@ if [ "$BITCOIND_BLOOM_FILTERS" == "on" ]; then
   bitcoind_options+=(-peerbloomfilters=1)
 fi
 
+if [ -n "$BITCOIND_BLOCKS_DIR" ]; then
+  bitcoind_options+=(-blocksdir="/home/bitcoin/blocks")
+fi
+
 if [ "$COMMON_BTC_NETWORK" == "testnet" ]; then
-  bitcoind_options+=(-testnet)
+  bitcoind_options+=(-testnet4)
+fi
+
+if [ "$BITCOIND_BAN_KNOTS" == "on" ]; then
+    echo "Starting ban script background process"
+    (
+      sleep 600; # wait 10 minutes
+      while true; do
+        /ban-knots.sh
+        sleep 600  # Run every 10 minutes
+      done
+    ) &
+
 fi
 
 exec bitcoind "${bitcoind_options[@]}"

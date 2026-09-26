@@ -40,6 +40,25 @@ a:hover {
 	color: #2196f3;
 }
 
+dialog {
+    width: 600px;
+    border: 0;
+    background: #1a1d1f;
+}
+
+dialog::backdrop {
+    backdrop-filter: blur(5px);
+}
+
+dialog .dialog-header,
+dialog .dialog-body {
+    color: #fff;
+}
+
+dialog .checkbox {
+    line-height: 2.5rem;
+}
+
 .payload-textarea {
   width: 100%;
   resize: none;
@@ -280,7 +299,7 @@ td.table-value {
 /* PAGES - COMMONS */
 body.dmt {
   min-height: 100vh;
-  background-image: url("../icons/samourai-logo.png");
+  background-image: url("../icons/dojo.svg");
   background-repeat: no-repeat;
   background-position: center;
 }
@@ -326,6 +345,11 @@ button {
   display: inline-block;
   margin-left: 8px;
   margin-right: 8px;
+}
+
+.btn-group button {
+    margin-left: 0;
+    margin-right: 0;
 }
 
 .box-content {
@@ -434,6 +458,144 @@ button {
   vertical-align: middle;
 }
 
+/* MOBILE MENU BUTTON */
+.mobile-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 30px;
+  height: 25px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1001;
+}
+
+.mobile-menu-btn span {
+  width: 30px;
+  height: 3px;
+  background: #e0e0e3;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+.mobile-menu-btn.active span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.mobile-menu-btn.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-btn.active span:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+/* MOBILE MENU OVERLAY */
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-menu-overlay.active {
+  opacity: 1;
+}
+
+/* MOBILE RESPONSIVE STYLES */
+@media (max-width: 991px) {
+  /* Show hamburger menu button */
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+
+  /* Hide background mascot graphics on mobile/tablet */
+  body.dmt {
+    background-image: none;
+  }
+
+  /* Mobile menu sidebar */
+  #menu {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 280px;
+    height: 100vh;
+    background: #1a1d1f;
+    z-index: 1000;
+    overflow-y: auto;
+    transition: left 0.3s ease;
+    padding: 20px 15px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  }
+
+  #menu.active {
+    left: 0;
+  }
+
+  /* Adjust main content area */
+  #body #main {
+    width: 100%;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  /* Adjust header title */
+  #header .title h1 {
+    font-size: 16px;
+  }
+
+  #header .title span {
+    display: inline;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Ensure hamburger stays visible */
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+
+  #header .title h1 {
+    font-size: 14px;
+  }
+
+  #header .title h1 span:first-child {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ensure hamburger stays visible */
+  .mobile-menu-btn {
+    display: flex !important;
+    width: 25px;
+    height: 20px;
+  }
+
+  .mobile-menu-btn span {
+    width: 25px;
+    height: 2px;
+  }
+
+  #header .title h1 {
+    font-size: 12px;
+  }
+
+  #menu {
+    width: 250px;
+  }
+}
+
 /* PAGES - HOME */
 #login-page {
   padding: 100px 0;
@@ -449,7 +611,7 @@ button {
   color: #e0e0e3;
 }
 
-#login-page #signin {
+#login-page #signin .btn {
 	margin-top: 10px;
 }
 
@@ -459,6 +621,138 @@ button {
 
 #login-page span {
   display:inline;
+}
+
+#login-page .qr-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70px;
+  height: 70px;
+  padding: 12px;
+  border-radius: 4px;
+  transform: translate(-50%, -50%);
+  background-color: #313436;
+  background-image: url('../icons/dojo.svg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: none;
+}
+
+#login-page .signin-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+#login-page .signin {
+  padding: 2rem;
+  padding-right: 0;
+}
+
+#login-page .signin.with-auth47 {
+  padding-right: 2rem;
+  border-right: 1px solid #ccc;
+}
+
+#login-page .auth47-box {
+  position: relative;
+}
+
+#login-page .auth47-box.active {
+  padding: 2rem;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  #login-page {
+    padding: 50px 15px;
+  }
+
+  #login-page #welcome-msg h1 {
+    font-size: 18px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  #login-page .signin-box {
+    flex-direction: column;
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+
+  #login-page .signin {
+    padding: 1rem;
+    padding-right: 1rem;
+    width: 100%;
+  }
+
+  #login-page .signin.with-auth47 {
+    padding-right: 1rem;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  #login-page .auth47-box.active {
+    padding: 1rem;
+    width: 100%;
+  }
+
+  #login-page input {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  #login-page #welcome-msg {
+    margin-bottom: 30px;
+    padding: 0 15px;
+  }
+
+  #qr-pairing {
+    width: 256px;
+    height: 256px;
+    max-width: 100%;
+  }
+
+  .col-xs-8 {
+    width: 100%;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+
+@media (max-width: 553px) {
+
+  .two-columns-left {
+    width: 100%;
+  }
+
+  .two-columns-right {
+    width: 100%;
+  }
+
+  .col-xs-2 {
+    width: 16%;
+  }
+
+  .col-xs-7 {
+    width: 68%;
+  }
+
+  .col-xs-3.login-box {
+    width: 16%;
+  }
+
+}
+
+@media (max-width: 428px) {
+
+  .title {
+    padding-top: 20px;
+  }
 }
 
 /* PAGES - STATUS */
@@ -473,25 +767,33 @@ button {
 }
 
 /* PAGES - PAIRING */
-#qr-label,
-#qr-explorer-label {
+#qr-label {
   margin: 0 0 20px 0;
   text-align: center;
   display: inline-block;
 }
 
-#qr-container,
-#qr-explorer-container {
-  display: inline-block;
+#qr-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
 }
 
-#qr-pairing,
-#qr-explorer-pairing {
+#qr-pairing {
   width: 276px;
   height: 276px;
   padding: 10px;
   background-color: #fff;
   margin: auto;
+  border-radius: 4px;
+  border: none;
+  text-align: center;
+}
+
+#qr-auth47 {
+  text-align: center;
 }
 
 /* PAGES - BLOCKS RESCAN */
@@ -823,4 +1125,3 @@ button {
 .spacer80 { height: 80px; width: 100%; font-size: 0; margin: 0; padding: 0; border: 0; display: block; }
 .spacer90 { height: 90px; width: 100%; font-size: 0; margin: 0; padding: 0; border: 0; display: block; }
 .spacer110 { height: 110px; width: 100%; font-size: 0; margin: 0; padding: 0; border: 0; display: block; }
-

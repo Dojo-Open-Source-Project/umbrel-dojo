@@ -1,16 +1,12 @@
-#!/bin/bash
+#!/bin/sh
 
-DIRPATH=$(dirname -- $(readlink -fn -- "$0"))
+# PM2 has to be installed as a globally available binary
 
-forever stop 0
-forever stop 0
-forever stop 0
-forever stop 0
+# Use `reload` instead of `restart` for graceful 0-downtime reload
+# Use mainnet or testnet, dependning on the `NAMESPACE` defined in pm2.config.cjs
+pm2 reload mainnet
 
-cd $DIRPATH/accounts
-forever start -a -l forever.log -o output.log -e error.log index.js
-cd $DIRPATH/pushtx
-forever start -a -l forever.log -o output.log -e error.log index.js
-forever start -a -l forever.log -o output.log -e error.log index-orchestrator.js
-cd $DIRPATH/tracker
-forever start -a -l forever.log -o output.log -e error.log index.js
+# to apply chnages like new interpreter, for example when switching to new node.js version,
+# the scripts have to be restarted via PM2 config file like:
+# cd /path-to-app
+# pm2 reload pm2.config.cjs --update-env

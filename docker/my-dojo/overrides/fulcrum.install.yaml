@@ -1,8 +1,7 @@
-version: "3.2"
-
 services:
   fulcrum:
     image: "samouraiwallet/dojo-fulcrum:${DOJO_FULCRUM_VERSION_TAG}"
+    pull_policy: never
     container_name: fulcrum
     build:
       context: ./fulcrum
@@ -14,10 +13,8 @@ services:
       - ./conf/docker-common.conf
       - ./conf/docker-bitcoind.conf
       - ./conf/docker-indexer.conf
-    restart: on-failure
+    restart: always
     command: /restart.sh
-    expose:
-      - "50001"
     volumes:
       - data-fulcrum:/home/fulcrum
     logging:
@@ -28,10 +25,13 @@ services:
     stop_grace_period: 1m
     depends_on:
       - tor
-      - node
     networks:
       dojonet:
         ipv4_address: ${NET_DOJO_INDEXER_IPV4}
+
+  node:
+    depends_on:
+      - fulcrum
 
 volumes:
   data-fulcrum:

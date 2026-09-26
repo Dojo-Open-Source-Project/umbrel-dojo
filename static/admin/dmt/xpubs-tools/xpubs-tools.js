@@ -72,8 +72,8 @@ const screenXpubsToolsScript = {
     },
 
     getExplorerInfo: () => {
-        lib_api.getExplorerPairingInfo().then(explorerInfo => {
-            screenXpubsToolsScript.explorerInfo = explorerInfo
+        lib_api.getPairingInfo().then(pairingInfo => {
+            screenXpubsToolsScript.explorerInfo = pairingInfo.explorer
         }).catch(error => {
             lib_errors.processError(error)
         })

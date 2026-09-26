@@ -46,7 +46,7 @@ By default, MyDojo and Docker data will be stored under `/var/lib/docker` direct
 
 ## 3/ First Installation
 
-The procedure described in this section will configure and install MyDojo with its own Indexer for fast rescans. See the [Advanced Setups](./DOCKER_advanced_setups.md) for more information about this module or for the additional installation of a Whirlpool client on your Dojo.
+The procedure described in this section will configure and install MyDojo with its own Indexer for fast rescans.
 
 ### 3.1/ Prepare Host System
 
@@ -62,54 +62,7 @@ First, we must prepare our host system for MyDojo by installing required operati
 
 #### 3.1.2/ Install Docker & Docker-Compose
 
-For an installation of Docker and Docker Compose with a different Linux distribution, please refer to the official [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/) documentations.
-
-If Docker is already installed on the host machine remove old Docker versions installed on the computer
-
-```sh
-> sudo apt-get remove docker docker-engine docker.io containerd runc
-```
-
-__Download Docker's official PGP key__
-
-```sh
-> curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-> sudo apt-key fingerprint 0EBFCD88
-```
-
-Verify that you now have the key with the fingerprint `9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88`
-
-__Install Docker__
-
-```sh
-> sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-> sudo apt-get update
-> sudo apt-get install docker-ce docker-ce-cli containerd.io
-```
-
-__Test the installation of Docker__
-
-```sh
-> sudo docker --version
-```
-
-This command should return the version of Docker if installation was successful.
-
-
-__Install Docker Compose__
-
-```sh
-> sudo curl -L "https://github.com/docker/compose/releases/download/1.25.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-> sudo chmod +x /usr/local/bin/docker-compose
-```
-
-__Test the installation of Docker Compose__
-
-```sh
-> sudo docker-compose --version
-```
-
-This command should return the version of Docker Compose if installation was successful.
+Follow the [official insctruction manual](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository) on the Docker documentation site.
 
 __Create a user account for MyDojo__
 
@@ -190,7 +143,7 @@ Download and unpack the source archive for the latest version of MyDojo and copy
 
 ```sh
 > cd ~
-> wget https://code.samourai.io/dojo/samourai-dojo/-/archive/master/samourai-dojo-master.zip
+> wget -O samourai-dojo-master.zip https://github.com/Dojo-Open-Source-Project/samourai-dojo/archive/refs/heads/master.zip
 > unzip samourai-dojo-master.zip -d .
 > cp -a samourai-dojo-master/. dojo-app/
 ```
@@ -297,18 +250,19 @@ INDEXER_INSTALL=on
 Save and exit the file with `CTRL+X`, `Y` and `ENTER`.
 
 
-#### 3.3.5/ Explorer configuration
+### 3.3.5/ Soroban configuration
 
-Edit the `docker-explorer.conf.tpl` file.
+Edit the `docker-soroban.conf.tpl` file.
 
 ```sh
-> nano docker-explorer.conf.tpl
+> nano docker-soroban.conf.tpl
 ```
 
 Customize the content of the file
 
 ```sh
-EXPLORER_KEY=<provide_this_value>
+SOROBAN_INSTALL="on"
+SOROBAN_ANNOUNCE="on"
 ```
 
 Save and exit the file with `CTRL+X`, `Y` and `ENTER`.
@@ -406,7 +360,7 @@ Download the archive of latest version
 
 ```sh
 > cd ~
-> wget https://code.samourai.io/dojo/samourai-dojo/-/archive/master/samourai-dojo-master.zip
+> wget -O samourai-dojo-master.zip https://github.com/Dojo-Open-Source-Project/samourai-dojo/archive/refs/heads/master.zip
 ```
 
 Uncompress the archive
@@ -423,7 +377,7 @@ Overwrite the dojo-app directory with the content of the archive
 
 #### 4.1.3/ Update Configuration (optional)
 
-Check the [release notes](https://code.samourai.io/dojo/samourai-dojo/-/blob/master/RELEASES.md) of the new vesion for a list of new features that may require to tune the value of new configuration options.
+Check the [release notes](/RELEASES.md) of the new vesion for a list of new features that may require to tune the value of new configuration options.
 
 If applicable, edit the templates files stored in `~/dojo-app/docker/my-dojo/conf/` and modify the values set for new configuration options.
 
@@ -466,24 +420,24 @@ Download the archive of version `X.Y.Z`
 
 ```sh
 > cd ~
-> wget https://code.samourai.io/dojo/samourai-dojo/-/archive/vX.Y.Z/samourai-dojo-vX.Y.Z.zip
+> wget https://github.com/Dojo-Open-Source-Project/samourai-dojo/archive/refs/tags/vX.Y.Z.zip
 ```
 
 Uncompress the archive
 
 ```sh
-> unzip samourai-dojo-vX.Y.Z.zip -d .
+> unzip vX.Y.Z.zip -d .
 ```
 
 Overwrite the dojo-app directory with the content of the archive
 
 ```sh
-> cp -a samourai-dojo-vX.Y.Z/. dojo-app/
+> cp -a vX.Y.Z/. dojo-app/
 ```
 
 #### 4.2.3/ Update Configuration (optional)
 
-Check the [release notes](https://code.samourai.io/dojo/samourai-dojo/-/blob/master/RELEASES.md) for a list of new features that may require to tune the value of new configuration options.
+Check the [release notes](/RELEASES.md) for a list of new features that may require to tune the value of new configuration options.
 
 If applicable, edit the templates files stored in `~/dojo-app/docker/my-dojo/conf/` and modify the values set for new configuration options.
 
