@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a runnable compose file from the App Store package.
 
-The service definitions are taken verbatim from umbrel/dojo/docker-compose.yml
+The service definitions are taken verbatim from the package's docker-compose.yml
 so the smoke test exercises what Umbrel would actually run. Only the things
 umbrelOS itself supplies are added here:
 
@@ -21,23 +21,32 @@ import sys
 import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
-PACKAGE = HERE.parent / "dojo" / "docker-compose.yml"
+DEFAULT_PACKAGE = HERE.parent / "dojo"
 
 
-def main(out_path: str, data_dir: str) -> None:
-    pkg = yaml.safe_load(PACKAGE.read_text())
+def main(out_path: str, data_dir: str, package_dir: str = None) -> None:
+    package = pathlib.Path(package_dir) if package_dir else DEFAULT_PACKAGE
+
+    # The app id and the browser port come from the manifest, so this works
+    # unchanged against the community-store variant, where the id carries the
+    # store prefix and every injected container name moves with it.
+    manifest = yaml.safe_load((package / "umbrel-app.yml").read_text())
+    app_id = manifest["id"]
+    proxy_port = manifest["port"]
+
+    pkg = yaml.safe_load((package / "docker-compose.yml").read_text())
     services = pkg["services"]
 
     services.pop("app_proxy", None)
     for name, service in services.items():
-        service["container_name"] = f"dojo_{name}_1"
+        service["container_name"] = f"{app_id}_{name}_1"
 
     # Reach the app from the host.
-    services["nginx"].setdefault("ports", []).append("3023:8081")
+    services["nginx"].setdefault("ports", []).append(f"{proxy_port}:8081")
 
     services["bitcoind"] = {
         "image": "bitcoin/bitcoin:29.0",
-        "container_name": "dojo_bitcoind_1",
+        "container_name": f"{app_id}_bitcoind_1",
         "restart": "on-failure",
         # No `user:` here. This stands in for Umbrel's Bitcoin Node app, and
         # the official Core image needs a root entrypoint (it runs usermod
@@ -75,4 +84,4 @@ def main(out_path: str, data_dir: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])

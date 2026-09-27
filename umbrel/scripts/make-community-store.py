@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Generate the Dojo OSP community app store from umbrel/dojo.
+
+    ./umbrel/scripts/make-community-store.py [output-dir]
+
+umbrelOS lets you add any GitHub repository as an extra app store, which is how
+this package can be installed before the official umbrel-apps submission lands.
+A community store has two hard requirements (see
+github.com/getumbrel/umbrel-community-app-store):
+
+  * umbrel-app-store.yml at the repository ROOT, and the app directory at the
+    root too -- this repository's root is the vendored Dojo tree, so it cannot
+    itself be a store;
+  * the store id must PREFIX every app id, so the app cannot be plain `dojo`.
+
+That second one is not cosmetic: umbrelOS derives container names from the app
+id as `<app-id>_<service>_1`, so every hardcoded container name in the compose
+file has to move with it. This script does that transform, asserting on every
+substitution so a rename upstream fails the build rather than producing a store
+that installs and then quietly cannot talk to itself.
+
+Everything else in the package already derives its paths from $APP_ID
+(torrc.template, hooks/pre-start, exports.sh) and needs no rewriting at all.
+"""
+
+import pathlib
+import re
+import shutil
+import sys
+import tempfile
+
+STORE_ID = "dojo-osp"
+STORE_NAME = "Dojo OSP"
+APP_ID = f"{STORE_ID}-dojo"
+
+# The official package's ports and static IP are absolute, so a device with both
+# this and the official `dojo` app installed would collide. Move ours.
+PORT_PROXY = ("3023", "3025")
+PORT_API = ('APP_DOJO_API_PORT="3024"', 'APP_DOJO_API_PORT="3026"')
+NGINX_IP = ('APP_DOJO_NGINX_IP="10.21.21.31"', 'APP_DOJO_NGINX_IP="10.21.21.32"')
+
+# Community stores render the icon from a URL in the manifest rather than from
+# Umbrel's asset repo. HEAD resolves to whatever the store repo's default branch
+# is, so this does not care whether it ends up main or master.
+ICON_URL = (
+    "https://raw.githubusercontent.com/linkinparkrulz/umbrel-dojo-store"
+    f"/HEAD/{APP_ID}/icon.svg"
+)
+STORE_REPO = "https://github.com/linkinparkrulz/umbrel-dojo-store"
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+PACKAGE = REPO_ROOT / "umbrel" / "dojo"
+
+
+def replace_once(text, old, new, label):
+    """Substitute exactly one occurrence, or fail."""
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected 1 occurrence of {old!r}, found {count}")
+    return text.replace(old, new)
+
+
+def transform_compose(text):
+    # <app-id>_<service>_1 is the container name umbrelOS injects.
+    text, n = re.subn(
+        r"\bdojo_(nginx|db|node|soroban)_1\b", rf"{APP_ID}_\1_1", text
+    )
+    if n != 6:
+        raise SystemExit(f"compose: expected 6 container names, rewrote {n}")
+
+    # The Tor hidden-service directory is app-<app-id>-api. Note this must not
+    # touch /var/lib/tor/hsv3dojo, which is Dojo's own internal path.
+    text = replace_once(
+        text, "${TOR_DATA_DIR}/app-dojo-api", f"${{TOR_DATA_DIR}}/app-{APP_ID}-api",
+        "compose",
+    )
+    if "hsv3dojo" not in text:
+        raise SystemExit("compose: Dojo's internal hsv3dojo path was clobbered")
+    return text
+
+
+def transform_manifest(text):
+    text = replace_once(text, "id: dojo\n", f"id: {APP_ID}\n", "manifest id")
+    text = replace_once(
+        text, f"port: {PORT_PROXY[0]}", f"port: {PORT_PROXY[1]}", "manifest port"
+    )
+    # Icon goes right after the name, where community manifests carry it.
+    text = replace_once(
+        text, "name: Dojo\n", f"name: Dojo\nicon: {ICON_URL}\n", "manifest icon"
+    )
+    # `submission` points at a pull request in the official store; here the
+    # store repo itself is the honest answer.
+    text = re.sub(r"^# TODO:.*\n", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^submission: .*$", f"submission: {STORE_REPO}", text, flags=re.MULTILINE)
+    return text
+
+
+def transform_exports(text):
+    text = replace_once(text, PORT_API[0], PORT_API[1], "exports api port")
+    text = replace_once(text, NGINX_IP[0], NGINX_IP[1], "exports nginx ip")
+    return text
+
+
+def make_icon(source):
+    """Wrap the glyph on a solid tile so it renders on Umbrel's home screen."""
+    svg = source.read_text()
+    if 'fill="currentColor"' not in svg:
+        raise SystemExit("icon: expected the glyph to use currentColor")
+    svg = svg.replace('fill="currentColor"', 'fill="#ffffff"')
+    return svg.replace(
+        "<g>",
+        '<rect width="500" height="500" rx="110" fill="#16161d"/>\n<g '
+        'transform="translate(75 75) scale(0.7)">',
+        1,
+    )
+
+
+def main(out_dir):
+    out = pathlib.Path(out_dir)
+    if out.exists():
+        shutil.rmtree(out)
+    app_out = out / APP_ID
+    shutil.copytree(PACKAGE, app_out)
+
+    (out / "umbrel-app-store.yml").write_text(
+        f'id: "{STORE_ID}"\nname: "{STORE_NAME}"\n'
+    )
+
+    for name, fn in (
+        ("docker-compose.yml", transform_compose),
+        ("umbrel-app.yml", transform_manifest),
+        ("exports.sh", transform_exports),
+    ):
+        path = app_out / name
+        path.write_text(fn(path.read_text()))
+
+    (app_out / "icon.svg").write_text(
+        make_icon(REPO_ROOT / "umbrel/images/nginx/connect/img/dojo.svg")
+    )
+
+    # PR-BODY belongs to the official submission, not to the store.
+    for stray in ("PR-BODY.md",):
+        (app_out / stray).unlink(missing_ok=True)
+
+    print(f"store written to {out}")
+    print(f"  store id : {STORE_ID}")
+    print(f"  app id   : {APP_ID}")
+
+
+if __name__ == "__main__":
+    # Outside the repository by default: the root is the vendored Dojo tree and
+    # adding a build directory to its .gitignore would be another delta to carry.
+    default = pathlib.Path(tempfile.gettempdir()) / "umbrel-dojo-store"
+    main(sys.argv[1] if len(sys.argv) > 1 else default)

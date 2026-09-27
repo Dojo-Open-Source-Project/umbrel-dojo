@@ -15,8 +15,21 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK_DIR="${WORK_DIR:-${TMPDIR:-/tmp}/dojo-smoke-test}"
 KEEP="${KEEP:-0}"
-CONNECT_URL="http://127.0.0.1:3023"
-API_URL="http://127.0.0.1:3024"
+
+# Which package to test. Defaults to the App Store package; point it at a
+# generated community store to check that variant, where the app id carries the
+# store prefix and every injected container name moves with it:
+#   PACKAGE_DIR=/tmp/umbrel-dojo-store/dojo-osp-dojo ./umbrel/testing/smoke-test.sh
+PACKAGE_DIR="${PACKAGE_DIR:-${REPO_ROOT}/umbrel/dojo}"
+
+# Everything app-id-derived is read from the package rather than hardcoded.
+APP_ID="$(sed -n 's/^id: *//p' "${PACKAGE_DIR}/umbrel-app.yml" | head -1)"
+PROXY_PORT="$(sed -n 's/^port: *//p' "${PACKAGE_DIR}/umbrel-app.yml" | head -1)"
+API_PORT="$(sed -n 's/.*APP_DOJO_API_PORT="\([0-9]*\)".*/\1/p' "${PACKAGE_DIR}/exports.sh" | head -1)"
+NGINX_IP="$(sed -n 's/.*APP_DOJO_NGINX_IP="\([0-9.]*\)".*/\1/p' "${PACKAGE_DIR}/exports.sh" | head -1)"
+
+CONNECT_URL="http://127.0.0.1:${PROXY_PORT}"
+API_URL="http://127.0.0.1:${API_PORT}"
 
 pass=0
 fail=0
@@ -60,14 +73,14 @@ if [ "$(id -u)" = "0" ]; then
 fi
 
 python3 "${REPO_ROOT}/umbrel/testing/compose-from-package.py" \
-	"${WORK_DIR}/docker-compose.yml" "${WORK_DIR}"
+	"${WORK_DIR}/docker-compose.yml" "${WORK_DIR}" "${PACKAGE_DIR}"
 
 # Render the top-level templates the way umbrelOS does, into the app data dir.
-APP_ID=dojo APP_DOJO_NGINX_IP=10.21.21.31 \
+APP_ID="${APP_ID}" APP_DOJO_NGINX_IP="${NGINX_IP}" \
 	envsubst '$APP_ID $APP_DOJO_NGINX_IP' \
-	< "${REPO_ROOT}/umbrel/dojo/torrc.template" \
+	< "${PACKAGE_DIR}/torrc.template" \
 	> "${WORK_DIR}/app-data/torrc"
-envsubst < "${REPO_ROOT}/umbrel/dojo/soroban.env.template" \
+envsubst < "${PACKAGE_DIR}/soroban.env.template" \
 	> "${WORK_DIR}/app-data/soroban.env"
 
 # Stand-ins for Umbrel's env. The secrets are the same shape derive_entropy
@@ -90,8 +103,8 @@ APP_ELECTRS_NODE_IP=10.21.21.10
 APP_ELECTRS_NODE_PORT=50001
 TOR_PROXY_IP=10.21.21.11
 TOR_PROXY_PORT=9050
-APP_DOJO_NGINX_IP=10.21.21.31
-APP_DOJO_API_PORT=3024
+APP_DOJO_NGINX_IP=${NGINX_IP}
+APP_DOJO_API_PORT=${API_PORT}
 APP_DOJO_SOROBAN_PORT=4242
 APP_DOJO_HIDDEN_SERVICE=notyetset.onion
 APP_DOJO_INDEXER_BATCH_SUPPORT=inactive
@@ -112,7 +125,7 @@ compose up -d
 # so give regtest a chain before Dojo gets going rather than at the end.
 step "Mining 3 regtest blocks"
 bcli() {
-	docker exec dojo_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 \
+	docker exec ${APP_ID}_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 \
 		-rpcuser=umbrel -rpcpassword=testpassword "$@"
 }
 bcli -rpcwait createwallet smoketest > /dev/null 2>&1 || true
@@ -146,7 +159,7 @@ done
 
 step "Database"
 check "schema created (api_keys table exists)" \
-	docker exec dojo_db_1 sh -c 'mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT 1 FROM api_keys LIMIT 1"'
+	docker exec ${APP_ID}_db_1 sh -c 'mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT 1 FROM api_keys LIMIT 1"'
 
 step "Dojo API (published on ${API_URL})"
 check "nginx answers on the API port" \
@@ -176,7 +189,7 @@ if [ -n "${token}" ]; then
 fi
 
 step "Tor"
-HOSTNAME_FILE="${WORK_DIR}/tor-data/app-dojo-api/hostname"
+HOSTNAME_FILE="${WORK_DIR}/tor-data/app-${APP_ID}-api/hostname"
 if [ -f "${HOSTNAME_FILE}" ]; then
 	onion="$(cat "${HOSTNAME_FILE}")"
 	ok "hidden service created ($(printf '%s' "${onion}" | cut -c1-16)...)"
@@ -197,9 +210,9 @@ fi
 
 step "Soroban"
 check "Tor bootstrapped inside the soroban container" \
-	sh -c "docker logs dojo_soroban_1 2>&1 | grep -q 'Tor initialization complete'"
+	sh -c "docker logs ${APP_ID}_soroban_1 2>&1 | grep -q 'Tor initialization complete'"
 check "soroban RPC is up" \
-	sh -c "docker logs dojo_soroban_1 2>&1 | grep -q 'Soroban started'"
+	sh -c "docker logs ${APP_ID}_soroban_1 2>&1 | grep -q 'Soroban started'"
 # Not checked: data/soroban/peerstore. Soroban only writes it once it has
 # connected to peers over Tor, which takes minutes -- its absence early in a
 # run means nothing.
@@ -208,7 +221,7 @@ step "Tracker"
 # The tracker polls every 30s, so give it a couple of cycles.
 indexed=0
 for _ in $(seq 1 8); do
-	indexed="$(docker exec dojo_db_1 sh -c \
+	indexed="$(docker exec ${APP_ID}_db_1 sh -c \
 		'mariadb -N -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT COUNT(*) FROM blocks"' \
 		2>/dev/null | tr -d '[:space:]' || echo 0)"
 	[ "${indexed:-0}" -ge 1 ] && break
@@ -217,7 +230,7 @@ done
 if [ "${indexed:-0}" -ge 1 ]; then
 	ok "tracker indexed ${indexed} block(s) over ZMQ"
 else
-	bad "tracker indexed a block over ZMQ (see: docker logs dojo_node_1)"
+	bad "tracker indexed a block over ZMQ (see: docker logs ${APP_ID}_node_1)"
 fi
 
 step "Restart and persistence"
@@ -225,7 +238,7 @@ compose restart > /dev/null 2>&1
 wait_for_ready || true
 check "Dojo is back after restart" curl -sf "${READY_URL}"
 check "database survived the restart" \
-	docker exec dojo_db_1 sh -c 'mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT 1 FROM api_keys LIMIT 1"'
+	docker exec ${APP_ID}_db_1 sh -c 'mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT 1 FROM api_keys LIMIT 1"'
 
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "${pass}" "${fail}"
 
