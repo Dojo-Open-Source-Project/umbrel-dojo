@@ -160,8 +160,21 @@ if [ -n "${token}" ]; then
 fi
 
 step "Tor"
-if [ -f "${WORK_DIR}/tor-data/app-dojo-api/hostname" ]; then
-	ok "hidden service created ($(cut -c1-16 < "${WORK_DIR}/tor-data/app-dojo-api/hostname")...)"
+HOSTNAME_FILE="${WORK_DIR}/tor-data/app-dojo-api/hostname"
+if [ -f "${HOSTNAME_FILE}" ]; then
+	onion="$(cat "${HOSTNAME_FILE}")"
+	ok "hidden service created ($(printf '%s' "${onion}" | cut -c1-16)...)"
+
+	# exports.sh reads this file every time the app starts, so a first boot
+	# has no onion yet and the next start picks it up. Reproduce that here,
+	# otherwise the Connect page keeps showing "no Tor address yet".
+	sed -i.bak "s|^APP_DOJO_HIDDEN_SERVICE=.*|APP_DOJO_HIDDEN_SERVICE=${onion}|" "${WORK_DIR}/.env"
+	rm -f "${WORK_DIR}/.env.bak"
+	compose up -d --force-recreate nginx > /dev/null 2>&1
+	wait_for_ready || true
+
+	check "Connect page advertises the real onion address" \
+		sh -c "curl -sf '${CONNECT_URL}/js/conf.js' | grep -q '${onion}'"
 else
 	bad "hidden service created"
 fi
@@ -202,4 +215,20 @@ check "database survived the restart" \
 	docker exec dojo_db_1 sh -c 'mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT 1 FROM api_keys LIMIT 1"'
 
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "${pass}" "${fail}"
+
+if [ "${KEEP}" = "1" ]; then
+	cat <<EOF
+
+Open in a browser:
+  Connect UI          ${CONNECT_URL}
+  Dojo API            ${API_URL}
+  Maintenance Tool    ${API_URL}/admin/
+
+Admin key (for the Maintenance Tool):
+  ${ADMIN_KEY}
+
+Working directory: ${WORK_DIR}
+EOF
+fi
+
 [ "${fail}" -eq 0 ]

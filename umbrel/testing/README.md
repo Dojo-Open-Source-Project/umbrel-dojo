@@ -8,9 +8,20 @@ No Umbrel required — just Docker and Python 3 with PyYAML.
 KEEP=1 ./umbrel/testing/smoke-test.sh   # leaves it running to poke at
 ```
 
-With `KEEP=1`, the Connect UI is at <http://localhost:3023> and the Dojo API at
-<http://localhost:3024> (Maintenance Tool at `/admin/`). The admin key is in the
-generated `.env`; the script prints the working directory it used.
+With `KEEP=1` the stack is left running and the script prints the URLs, the
+admin key for the Maintenance Tool, and the working directory it used:
+
+| | |
+|---|---|
+| Connect UI | <http://localhost:3023> |
+| Dojo API | <http://localhost:3024> |
+| Maintenance Tool | <http://localhost:3024/admin/> |
+
+The Connect page shows the real `.onion` address: the script re-reads the
+hidden-service hostname once Tor has created it and recreates nginx, which is
+what `exports.sh` does on the next app start. On a genuine first boot there is
+no onion yet and the page falls back to the local-network tab, exactly as it
+does on Umbrel.
 
 The service definitions come from `umbrel/dojo/docker-compose.yml` verbatim, via
 `compose-from-package.py`, so the test cannot drift from the package. Only what
