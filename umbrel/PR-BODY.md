@@ -91,15 +91,43 @@ There are exactly two source deltas against upstream, both documented:
 
 ## Testing performed
 
-<!-- Replace with what you actually ran. -->
+**Not yet tested through umbrelOS.** Stated plainly per `umbrel-test-app`: no
+Umbrel device was available, so the installer, `app_proxy`, Umbrel auth, the
+dependency picker and xpub import against a real Electrum server are unverified.
 
-- umbrelOS version:
-- Device / architecture:
-- Fresh install with Bitcoin Node + Electrs: pairing QR scanned by <wallet>, xpub imported and synced
-- Fresh install with Bitcoin Node + Fulcrum: batched imports confirmed
-- Tor hidden service reachable, Maintenance Tool loads at `/admin/`
-- Transaction pushed and relayed through PandoTx
-- App restarted and device rebooted: index and Soroban peerstore preserved
+What *was* verified, running the published images against a regtest Bitcoin node
+(`umbrel/testing/smoke-test.sh` in the packaging repo), on linux/amd64:
+
+- all containers start and stay up as `1000:1000`
+- MariaDB initialises the full schema, including the `api_keys` table new in 1.29
+- the Dojo API, Maintenance Tool and the network-specific admin config are served
+- the Connect UI renders, with `conf.js` substituted from its template
+- the derived admin key exchanges for a JWT; pairing and status endpoints answer
+- the Tor hidden service is created from `torrc.template` and reaches the page
+- Soroban bootstraps Tor and its RPC comes up
+- the tracker indexes a mined block over ZMQ
+- the app survives a restart with its database intact
+
+The Maintenance Tool reports Full Node, Tracker, Dojo DB and Web (Tor, nginx,
+Node.js) all healthy.
+
+Images were confirmed multi-arch by digest (`linux/amd64` + `linux/arm64`) and
+pull anonymously; `arm64` was not exercised at runtime.
+
+## Note for reviewers: an upstream bug this package works around
+
+Dojo 1.29.3 cannot start at all when it has no onion address at
+`/var/lib/tor/hsv3dojo/hostname`. `lib/auth/auth-rest-api.js` guards one auth47
+verifier on the hostname and, three lines below, constructs a second one
+unguarded; with no hostname that evaluates `new URL()` with no base and throws
+at module load, killing the Accounts process before it can listen. The request
+handler already checks `if (!verifierSoroban)` and answers "Auth47 not enabled",
+so a null verifier is the anticipated state and the guard was simply omitted.
+
+MyDojo shares `/var/lib/tor` with its own Tor container, so upstream never hits
+it. This package does two things about it: it carries the one-line guard as a
+documented delta, and it bind-mounts the hidden service into the node container
+so auth47 works with the real onion. The guard is being reported upstream.
 
 ## Lint
 
