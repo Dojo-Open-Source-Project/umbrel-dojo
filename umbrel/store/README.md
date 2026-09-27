@@ -9,15 +9,39 @@ package can be installed before the official
 this repository's root is the vendored Dojo source. The store is generated into
 a separate repository instead:
 
+Clone the store repository somewhere that persists, generate straight into it,
+and push:
+
 ```sh
-./umbrel/scripts/make-community-store.py          # -> $TMPDIR/umbrel-dojo-osp-store/
-./umbrel/scripts/make-community-store.py ./somewhere-else   # or pick a path
+git clone https://github.com/linkinparkrulz/umbrel-dojo-osp-store.git ~/umbrel-dojo-osp-store
+
+./umbrel/scripts/make-community-store.py ~/umbrel-dojo-osp-store
+
+cd ~/umbrel-dojo-osp-store
+git add -A
+git commit -m "Dojo OSP: <what changed>"
+git push
 ```
 
-Then push that directory to
-[linkinparkrulz/umbrel-dojo-osp-store](https://github.com/linkinparkrulz/umbrel-dojo-osp-store)
-and add that repository's URL in umbrelOS under **Settings → App Store →
+The generator clears the tree it writes into but leaves `.git` alone, so the
+same clone is reusable for every update.
+
+**Do not keep that clone under `/tmp`.** The default output path is
+`$TMPDIR/umbrel-dojo-osp-store`, which is fine for a one-shot look at the
+generated tree, but `/tmp` is cleared on reboot — and when it goes it takes
+`.git` with it, so the next push fails with *"not a git repository"* and has to
+be re-cloned. Pass a path under your home directory, as above.
+
+Then add the repository's URL in umbrelOS under **Settings → App Store →
 Community App Stores**.
+
+## Making an update reach installed devices
+
+umbrelOS decides an app has an update by comparing the manifest `version`
+string and nothing else — new image digests in `docker-compose.yml` are
+invisible to it. Any change to `version` in `umbrel/dojo/umbrel-app.yml`
+counts, since the comparison is string inequality rather than semver ordering;
+bump the `-patch.N` suffix. The device re-reads the store every five minutes.
 
 ## Why the app is called `dojo-osp-dojo`
 
