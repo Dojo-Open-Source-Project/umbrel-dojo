@@ -157,6 +157,12 @@ services:
       NODE_ADMIN_KEY: ${APP_DOJO_NODE_ADMIN_KEY}
       NODE_PREFIX_SUPPORT: support
       NODE_HOST: dojo_node_1
+    volumes:
+      # Same mount the node container takes. DOJO_HIDDEN_SERVICE above is
+      # resolved by exports.sh before any container exists, so on a first
+      # install it is always notyetset.onion; reading the file here, and
+      # serving it at /onion, is what gets the real address onto the page.
+      - ${TOR_DATA_DIR}/app-dojo-api:/var/lib/tor/hsv3dojo:ro
     ports:
       # The Dojo API, for wallets on the same network. The Connect UI on 8081
       # is not published here -- Umbrel's app_proxy fronts it, so it stays

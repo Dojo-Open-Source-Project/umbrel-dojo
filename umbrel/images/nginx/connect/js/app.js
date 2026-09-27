@@ -19,15 +19,28 @@
 
 	var isTestnet = conf.network === "testnet";
 	var apiBase = isTestnet ? "/test/v2" : "/v2";
-	var notSet =
-		!conf.dojoHiddenService || conf.dojoHiddenService.indexOf("notyetset") === 0;
 
-	var endpoints = {
-		tor: notSet ? null : "http://" + conf.dojoHiddenService + apiBase,
-		lan: "http://" + conf.deviceDomainName + ":" + conf.dojoApiPort + apiBase
-	};
+	var state = { onion: null, endpoint: null, pairing: null, token: null };
 
-	var state = { mode: "tor", pairing: null, token: null };
+	/* Tor is the only pairing address offered. A wallet stores one URL, so a
+	 * LAN-paired wallet would simply stop working the moment it left the house
+	 * -- silently, and long after the mistake was made.
+	 *
+	 * The address cannot come from conf.js alone: exports.sh resolves it before
+	 * any container exists, so on a first install it is always notyetset.onion
+	 * and the container's environment can never be updated. nginx serves the
+	 * real file at /onion, which pollOnion() picks up, so the page fills itself
+	 * in as soon as Tor publishes -- no restart, no reload.
+	 */
+	function setOnion(value) {
+		var onion = (value || "").trim();
+		if (!onion || onion.indexOf("notyetset") === 0) onion = null;
+		if (onion === state.onion) return false;
+
+		state.onion = onion;
+		state.endpoint = onion ? "http://" + onion + apiBase : null;
+		return true;
+	}
 
 	function el(id) {
 		return document.getElementById(id);
@@ -87,7 +100,7 @@
 			"dot-indexer",
 			accounts ? (indexer.maxHeight === null || indexer.maxHeight === undefined ? "warn" : "ok") : "idle"
 		);
-		dot("dot-tor", notSet ? "warn" : "ok");
+		dot("dot-tor", state.onion ? "ok" : "warn");
 
 		renderSync(indexedBlock, nodeBlock);
 	}
@@ -152,13 +165,14 @@
 	}
 
 	function renderPairing() {
-		var url = endpoints[state.mode];
+		var url = state.endpoint;
 		var hint = el("pairing-hint");
 
-		if (state.mode === "tor" && notSet) {
+		if (!url) {
 			hint.textContent =
-				"This Dojo does not have a Tor address yet. Enable Tor for this app in " +
-				"Umbrel, or pair over the local network instead.";
+				"Tor is still publishing this Dojo's address. This usually takes " +
+				"under a minute on a first start; the code will appear here on its " +
+				"own, so there is nothing to do but wait.";
 			el("endpoint").value = "";
 			el("pairing-json").textContent = "—";
 			renderQr(null);
@@ -166,9 +180,8 @@
 		}
 
 		hint.textContent =
-			state.mode === "tor"
-				? "Tor works from anywhere and keeps the connection private. Your wallet needs Tor enabled."
-				: "Only works while your wallet is on the same network as this Umbrel, and the traffic is not encrypted.";
+			"This is your Dojo's Tor address. It works from anywhere, not just at " +
+			"home, and keeps the connection private. Your wallet needs Tor enabled.";
 
 		el("endpoint").value = url;
 
@@ -221,18 +234,20 @@
 		});
 	}
 
-	function bindTabs() {
-		document.querySelectorAll(".tab").forEach(function (tab) {
-			tab.addEventListener("click", function () {
-				document.querySelectorAll(".tab").forEach(function (other) {
-					var active = other === tab;
-					other.classList.toggle("is-active", active);
-					other.setAttribute("aria-selected", String(active));
-				});
-				state.mode = tab.getAttribute("data-target");
-				renderPairing();
+	/* Served by nginx straight off the Tor volume. 404 means Tor has not
+	 * published yet, which is a normal first-boot state, not an error.
+	 */
+	function pollOnion() {
+		return fetch("/onion", { cache: "no-store" })
+			.then(function (response) {
+				return response.ok ? response.text() : "";
+			})
+			.catch(function () {
+				return "";
+			})
+			.then(function (value) {
+				if (setOnion(value)) renderPairing();
 			});
-		});
 	}
 
 	function login() {
@@ -415,15 +430,28 @@
 		"http://" + conf.deviceDomainName + ":" + conf.dojoApiPort + "/admin/"
 	);
 	bindCopyAndReveal();
-	bindTabs();
 	bindTools();
 
-	if (notSet) {
-		state.mode = "lan";
-		var lanTab = document.querySelector('.tab[data-target="lan"]');
-		if (lanTab) lanTab.click();
-	}
+	// conf.js is right whenever exports.sh happened to run after Tor had
+	// published, which is every start but the first. /onion corrects it when it
+	// was not.
+	setOnion(conf.dojoHiddenService);
 	renderPairing();
+
+	// Polled on its own timer rather than inside refresh(): refresh() only
+	// starts once login() resolves, and login() is precisely what fails while
+	// the node is still booting -- the same cold start during which Tor has not
+	// published yet. Stops itself once the address is in.
+	if (!state.onion) {
+		var onionTimer = setInterval(function () {
+			pollOnion().then(function () {
+				if (state.onion) clearInterval(onionTimer);
+			});
+		}, REFRESH_MS);
+		pollOnion().then(function () {
+			if (state.onion) clearInterval(onionTimer);
+		});
+	}
 
 	login()
 		.then(function (token) {

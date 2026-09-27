@@ -187,32 +187,6 @@ p { margin: 0 0 12px; }
 
 .tile-note { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--border); }
 
-/* Tabs */
-.tabs {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  margin: 4px 0 18px;
-}
-
-.tab {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-.tab.is-active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
-
 /* Pairing */
 .pairing { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
 

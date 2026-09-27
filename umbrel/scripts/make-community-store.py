@@ -58,15 +58,23 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 PACKAGE = REPO_ROOT / "umbrel" / "dojo"
 
 
-def replace_once(text, old, new, label):
-    """Substitute exactly one occurrence, or fail."""
+def replace_exactly(text, old, new, expected, label):
+    """Substitute exactly `expected` occurrences, or fail loudly."""
     count = text.count(old)
-    if count != 1:
-        raise SystemExit(f"{label}: expected 1 occurrence of {old!r}, found {count}")
+    if count != expected:
+        raise SystemExit(
+            f"{label}: expected {expected} occurrence(s) of {old!r}, found {count}"
+        )
     return text.replace(old, new)
 
 
+def replace_once(text, old, new, label):
+    return replace_exactly(text, old, new, 1, label)
+
+
 def transform_compose(text):
+    hsv3_before = text.count("hsv3dojo")
+
     # <app-id>_<service>_1 is the container name umbrelOS injects.
     text, n = re.subn(
         r"\bdojo_(nginx|db|node|soroban)_1\b", rf"{APP_ID}_\1_1", text
@@ -74,13 +82,15 @@ def transform_compose(text):
     if n != 6:
         raise SystemExit(f"compose: expected 6 container names, rewrote {n}")
 
-    # The Tor hidden-service directory is app-<app-id>-api. Note this must not
-    # touch /var/lib/tor/hsv3dojo, which is Dojo's own internal path.
-    text = replace_once(
+    # The Tor hidden-service directory is app-<app-id>-api. Two services mount
+    # it: node (Dojo reads its own onion for auth47) and nginx (the Connect page
+    # serves it at /onion). Note this must not touch /var/lib/tor/hsv3dojo,
+    # which is Dojo's own internal path and is not app-id derived.
+    text = replace_exactly(
         text, "${TOR_DATA_DIR}/app-dojo-api", f"${{TOR_DATA_DIR}}/app-{APP_ID}-api",
-        "compose",
+        2, "compose",
     )
-    if "hsv3dojo" not in text:
+    if text.count("hsv3dojo") != hsv3_before:
         raise SystemExit("compose: Dojo's internal hsv3dojo path was clobbered")
     return text
 
