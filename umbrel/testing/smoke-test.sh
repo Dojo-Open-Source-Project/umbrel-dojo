@@ -19,7 +19,7 @@ KEEP="${KEEP:-0}"
 # Which package to test. Defaults to the App Store package; point it at a
 # generated community store to check that variant, where the app id carries the
 # store prefix and every injected container name moves with it:
-#   PACKAGE_DIR=/tmp/umbrel-dojo-store/dojo-osp-dojo ./umbrel/testing/smoke-test.sh
+#   PACKAGE_DIR=/tmp/umbrel-dojo-osp-store/dojo-osp-dojo ./umbrel/testing/smoke-test.sh
 PACKAGE_DIR="${PACKAGE_DIR:-${REPO_ROOT}/umbrel/dojo}"
 
 # Everything app-id-derived is read from the package rather than hardcoded.

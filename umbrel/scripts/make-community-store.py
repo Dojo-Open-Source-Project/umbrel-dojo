@@ -23,6 +23,7 @@ Everything else in the package already derives its paths from $APP_ID
 (torrc.template, hooks/pre-start, exports.sh) and needs no rewriting at all.
 """
 
+import os
 import pathlib
 import re
 import shutil
@@ -39,14 +40,19 @@ PORT_PROXY = ("3023", "3025")
 PORT_API = ('APP_DOJO_API_PORT="3024"', 'APP_DOJO_API_PORT="3026"')
 NGINX_IP = ('APP_DOJO_NGINX_IP="10.21.21.31"', 'APP_DOJO_NGINX_IP="10.21.21.32"')
 
+# The repository this store is published from. Override with STORE_REPO_SLUG if
+# you fork it somewhere else; both URLs below derive from it.
+STORE_REPO_SLUG = os.environ.get(
+    "STORE_REPO_SLUG", "linkinparkrulz/umbrel-dojo-osp-store"
+)
+STORE_REPO = f"https://github.com/{STORE_REPO_SLUG}"
+
 # Community stores render the icon from a URL in the manifest rather than from
 # Umbrel's asset repo. HEAD resolves to whatever the store repo's default branch
-# is, so this does not care whether it ends up main or master.
+# turns out to be, so this does not care whether it ends up main or master.
 ICON_URL = (
-    "https://raw.githubusercontent.com/linkinparkrulz/umbrel-dojo-store"
-    f"/HEAD/{APP_ID}/icon.svg"
+    f"https://raw.githubusercontent.com/{STORE_REPO_SLUG}/HEAD/{APP_ID}/icon.svg"
 )
-STORE_REPO = "https://github.com/linkinparkrulz/umbrel-dojo-store"
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 PACKAGE = REPO_ROOT / "umbrel" / "dojo"
@@ -150,5 +156,5 @@ def main(out_dir):
 if __name__ == "__main__":
     # Outside the repository by default: the root is the vendored Dojo tree and
     # adding a build directory to its .gitignore would be another delta to carry.
-    default = pathlib.Path(tempfile.gettempdir()) / "umbrel-dojo-store"
+    default = pathlib.Path(tempfile.gettempdir()) / "umbrel-dojo-osp-store"
     main(sys.argv[1] if len(sys.argv) > 1 else default)

@@ -10,12 +10,12 @@ this repository's root is the vendored Dojo source. The store is generated into
 a separate repository instead:
 
 ```sh
-./umbrel/scripts/make-community-store.py          # -> $TMPDIR/umbrel-dojo-store/
+./umbrel/scripts/make-community-store.py          # -> $TMPDIR/umbrel-dojo-osp-store/
 ./umbrel/scripts/make-community-store.py ./somewhere-else   # or pick a path
 ```
 
 Then push that directory to
-[linkinparkrulz/umbrel-dojo-store](https://github.com/linkinparkrulz/umbrel-dojo-store)
+[linkinparkrulz/umbrel-dojo-osp-store](https://github.com/linkinparkrulz/umbrel-dojo-osp-store)
 and add that repository's URL in umbrelOS under **Settings → App Store →
 Community App Stores**.
 
@@ -58,7 +58,7 @@ If you plan to move across, do it deliberately rather than expecting an upgrade.
 The smoke test runs against either package:
 
 ```sh
-PACKAGE_DIR=/tmp/umbrel-dojo-store/dojo-osp-dojo ./umbrel/testing/smoke-test.sh
+PACKAGE_DIR=/tmp/umbrel-dojo-osp-store/dojo-osp-dojo ./umbrel/testing/smoke-test.sh
 ```
 
 That is worth doing after regenerating, because it is what proves the renamed
