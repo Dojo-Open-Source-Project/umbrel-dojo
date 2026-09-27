@@ -134,7 +134,19 @@ def make_icon(source):
 def main(out_dir):
     out = pathlib.Path(out_dir)
     if out.exists():
-        shutil.rmtree(out)
+        # Clear the generated tree but keep .git: the usual workflow is to run
+        # this straight into a clone of the store repo, and blowing the clone
+        # away turns every update into a fresh init against a remote that
+        # already has history.
+        for entry in out.iterdir():
+            if entry.name == ".git":
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+    else:
+        out.mkdir(parents=True)
     app_out = out / APP_ID
     shutil.copytree(PACKAGE, app_out)
 
