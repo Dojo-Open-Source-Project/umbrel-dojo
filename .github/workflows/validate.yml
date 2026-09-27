@@ -50,9 +50,9 @@ jobs:
             echo "Vendored tree is identical to ${tag}."
           fi
 
-          # The mysql permission delta is the only source change we expect.
+          # The deltas UMBREL.md documents are the only source changes we expect.
           unexpected="$(awk -F'|' 'NF>1 {gsub(/ /,"",$1); print $1}' /tmp/deltas.txt \
-            | grep -v '^docker/my-dojo/mysql/Dockerfile$' || true)"
+            | grep -vE '^(docker/my-dojo/mysql/Dockerfile|lib/auth/auth-rest-api.js)$' || true)"
           if [ -n "${unexpected}" ]; then
             echo "::warning::Undocumented deltas against ${tag}: ${unexpected}"
           fi

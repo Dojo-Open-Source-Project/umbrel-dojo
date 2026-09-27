@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# Create the Tor hidden-service directory before any container starts.
+#
+# The node container bind-mounts this directory read-only at
+# /var/lib/tor/hsv3dojo, which is where Dojo looks for its own onion address.
+# If Docker has to create the host path for that mount it makes it root-owned,
+# and the Tor container -- which runs as 1000:1000 -- can then never write the
+# hostname file into it, leaving the app without a hidden service for good.
+#
+# Mode 0700 matches what Tor creates for itself; it refuses to use a hidden
+# service directory that is more permissive than that.
+set -euo pipefail
+
+HS_DIR="${TOR_DATA_DIR}/app-${APP_ID}-api"
+
+mkdir -p "${HS_DIR}"
+chmod 700 "${HS_DIR}"
+chown 1000:1000 "${HS_DIR}" 2>/dev/null || true

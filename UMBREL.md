@@ -33,7 +33,33 @@ public Dojo schema and a copy of a config file that is also in this repo.
 
 Worth upstreaming.
 
-### 2. Files upstream generates at install time
+### 2. `lib/auth/auth-rest-api.js` — guard `verifierSoroban` on the hostname
+
+Upstream builds two auth47 verifiers. `verifier` is guarded on
+`keys.auth.strategies?.auth47?.hostname`; `verifierSoroban`, three lines below,
+is not. When Dojo has no onion address that second one evaluates
+`new URL("/v2/auth/auth47/authenticate/soroban")` with no base, which throws:
+
+```
+TypeError: Invalid URL ... at new Auth47Verifier ... at lib/auth/auth-rest-api.js:45
+```
+
+It throws at module load, so the **Accounts process dies before it can listen**
+on 8080. Nothing else in the app comes up behind it.
+
+`keys/index.js` reads that onion from `/var/lib/tor/hsv3dojo/hostname`. In
+MyDojo `/var/lib/tor` is a volume shared with Dojo's own Tor container, so the
+file is always there and upstream never hits this. Under Umbrel the hidden
+service lives in Umbrel's Tor data directory instead, so without the bind mount
+the package now adds, the file is absent and Dojo will not start at all.
+
+The guard restores what the code already expects: the request handler at line
+287 checks `if (!verifierSoroban)` and answers "Auth47 not enabled", so a null
+verifier is the anticipated state, not an error.
+
+Definitely worth upstreaming.
+
+### 3. Files upstream generates at install time
 
 Upstream's `docker/my-dojo/install/install-scripts.sh` writes several gitignored files on the host
 before `docker compose build` runs. We do not run `dojo.sh`, so `umbrel/scripts/prepare-build.sh`
@@ -45,7 +71,7 @@ makes the same choices, once, for both CI and local builds:
 | `static/admin/conf/index.js` | `index-mainnet.js` or `index-testnet.js` | not generated; nginx serves the network-specific file instead, so the image stays network-agnostic (see `umbrel/images/nginx/`) |
 | `docker/my-dojo/nginx/dojo.conf` | `mainnet.conf` or `testnet.conf` | not used; we build our own nginx image |
 
-### 3. Things deliberately *not* patched
+### 4. Things deliberately *not* patched
 
 - `docker/my-dojo/node/keys.index.js` needs no changes. It already reads `BITCOIND_*`,
   `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`, `NET_DOJO_TOR_IPV4` and the
@@ -66,5 +92,5 @@ git rm -rq . && git checkout vX.Y.Z -- .        # restores our own files in the 
 git checkout HEAD@{1} -- umbrel .github UMBREL.md README.md
 ```
 
-Then re-apply delta 1, re-read `RELEASES.md` for anything affecting the package (new env vars,
+Then re-apply deltas 1 and 2, re-read `RELEASES.md` for anything affecting the package (new env vars,
 schema migrations, service topology), update the version tags in `umbrel/dojo/`, and rebuild.

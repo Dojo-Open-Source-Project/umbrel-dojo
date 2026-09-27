@@ -107,6 +107,22 @@ compose() { docker compose -f "${WORK_DIR}/docker-compose.yml" --env-file "${WOR
 step "Starting the stack"
 compose up -d
 
+# The tracker will not start while bitcoind reports zero blocks
+# (tracker/blockchain-processor.js: `daemonNbHeaders === 0 || daemonNbBlocks === 0`),
+# so give regtest a chain before Dojo gets going rather than at the end.
+step "Mining 3 regtest blocks"
+bcli() {
+	docker exec dojo_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 \
+		-rpcuser=umbrel -rpcpassword=testpassword "$@"
+}
+bcli -rpcwait createwallet smoketest > /dev/null 2>&1 || true
+mining_address="$(bcli getnewaddress 2>/dev/null || true)"
+if [ -n "${mining_address}" ] && bcli generatetoaddress 3 "${mining_address}" > /dev/null 2>&1; then
+	ok "regtest chain has $(bcli getblockcount 2>/dev/null || echo '?') blocks"
+else
+	bad "could not mine regtest blocks"
+fi
+
 # /admin/ is proxied to the node's static file server, so a 200 there means
 # Dojo is up, not just nginx. Dojo registers no route at `/`.
 READY_URL="${API_URL}/admin/"
@@ -182,29 +198,26 @@ fi
 step "Soroban"
 check "Tor bootstrapped inside the soroban container" \
 	sh -c "docker logs dojo_soroban_1 2>&1 | grep -q 'Tor initialization complete'"
-check "wrote its peerstore to app data" test -e "${WORK_DIR}/app-data/data/soroban/peerstore"
+check "soroban RPC is up" \
+	sh -c "docker logs dojo_soroban_1 2>&1 | grep -q 'Soroban started'"
+# Not checked: data/soroban/peerstore. Soroban only writes it once it has
+# connected to peers over Tor, which takes minutes -- its absence early in a
+# run means nothing.
 
-step "Tracker (mining 3 regtest blocks)"
-# -rpcport is not optional here: bitcoin-cli -regtest would otherwise talk to
-# 18443, while the daemon is on 8332 to match how Umbrel exports the RPC port.
-docker exec dojo_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 -rpcuser=umbrel -rpcpassword=testpassword \
-	-rpcwait createwallet smoketest > /dev/null 2>&1 || true
-address="$(docker exec dojo_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 -rpcuser=umbrel -rpcpassword=testpassword \
-	getnewaddress 2>/dev/null || true)"
-if [ -n "${address}" ]; then
-	docker exec dojo_bitcoind_1 bitcoin-cli -regtest -rpcport=8332 -rpcuser=umbrel -rpcpassword=testpassword \
-		generatetoaddress 3 "${address}" > /dev/null 2>&1 || true
-	sleep 20
+step "Tracker"
+# The tracker polls every 30s, so give it a couple of cycles.
+indexed=0
+for _ in $(seq 1 8); do
 	indexed="$(docker exec dojo_db_1 sh -c \
 		'mariadb -N -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}" samourai-main -e "SELECT COUNT(*) FROM blocks"' \
 		2>/dev/null | tr -d '[:space:]' || echo 0)"
-	if [ "${indexed:-0}" -ge 1 ]; then
-		ok "tracker indexed ${indexed} block(s) over ZMQ"
-	else
-		bad "tracker indexed a block over ZMQ (see: docker logs dojo_node_1)"
-	fi
+	[ "${indexed:-0}" -ge 1 ] && break
+	sleep 10
+done
+if [ "${indexed:-0}" -ge 1 ]; then
+	ok "tracker indexed ${indexed} block(s) over ZMQ"
 else
-	bad "could not mine regtest blocks"
+	bad "tracker indexed a block over ZMQ (see: docker logs dojo_node_1)"
 fi
 
 step "Restart and persistence"

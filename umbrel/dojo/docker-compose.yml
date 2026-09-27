@@ -31,10 +31,19 @@ services:
     init: true
     restart: on-failure
     user: "1000:1000"
-    command: "/home/node/app/wait-for-it.sh dojo_db_1:3306 --timeout=720 --strict -- /home/node/app/restart.sh"
+    # Dojo reads its own onion address from /var/lib/tor/hsv3dojo/hostname at
+    # import time and uses it to build the auth47 callback URL. Give Tor a
+    # bounded chance to publish it on a first install so auth47 is live
+    # straight away; Dojo starts fine without it either way.
+    command: sh -c 'n=0; while [ ! -f /var/lib/tor/hsv3dojo/hostname ] && [ $$n -lt 60 ]; do n=$$((n+1)); sleep 2; done; exec /home/node/app/wait-for-it.sh dojo_db_1:3306 --timeout=720 --strict -- /home/node/app/restart.sh'
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # Dojo expects its own hidden service here. The path is fixed because the
+      # app id is fixed; hooks/pre-start creates it so Docker cannot make it
+      # root-owned and lock Tor out of it.
+      - ${TOR_DATA_DIR}/app-dojo-api:/var/lib/tor/hsv3dojo:ro
     environment:
       # pm2 keeps its state under $HOME; without this it lands on / and the
       # process manager cannot start.
