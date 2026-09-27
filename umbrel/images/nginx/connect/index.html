@@ -11,9 +11,7 @@
 
 <body>
   <header class="app-header">
-    <div class="app-mark" aria-hidden="true">
-      <img src="img/dojo.svg" alt="">
-    </div>
+    <div class="app-mark" aria-hidden="true"></div>
     <div class="app-title">
       <h1>Dojo</h1>
       <p class="muted">Your own private backend for Bitcoin wallets</p>
@@ -22,76 +20,92 @@
   </header>
 
   <main>
-    <!-- Sync ------------------------------------------------------------->
+    <!-- Health ------------------------------------------------------------>
     <section class="card card--hero" aria-labelledby="sync-heading">
-      <div class="hero-head">
-        <h2 id="sync-heading">Chain</h2>
-        <span class="muted small" id="sync-detail">&mdash;</span>
-      </div>
+      <h2 id="sync-heading" class="visually-hidden">Status</h2>
       <div class="hero-figure" id="sync-height">&mdash;</div>
+      <p class="muted" id="sync-note">Waiting for Dojo&hellip;</p>
       <div class="meter" id="sync-meter" hidden>
         <div class="meter-fill" id="sync-fill"></div>
       </div>
-      <p class="muted small" id="sync-note">Waiting for Dojo&hellip;</p>
+      <ul class="health" aria-label="Services">
+        <li><span class="dot dot--idle" id="dot-bitcoind"></span>Bitcoin node</li>
+        <li><span class="dot dot--idle" id="dot-tracker"></span>Tracker</li>
+        <li><span class="dot dot--idle" id="dot-indexer"></span>Electrum server</li>
+        <li><span class="dot dot--idle" id="dot-tor"></span>Tor</li>
+      </ul>
     </section>
 
-    <!-- Services ---------------------------------------------------------->
-    <section class="grid" aria-label="Services">
-      <article class="card tile">
-        <header class="tile-head">
-          <h3>Bitcoin node</h3>
-          <span class="dot dot--idle" id="dot-bitcoind"></span>
-        </header>
-        <dl class="rows">
-          <div><dt>Version</dt><dd id="btc-version">&mdash;</dd></div>
-          <div><dt>Peers</dt><dd id="btc-peers">&mdash;</dd></div>
-          <div><dt>Network</dt><dd id="btc-network">&mdash;</dd></div>
-          <div><dt>Relay fee</dt><dd id="btc-relayfee">&mdash;</dd></div>
-        </dl>
-      </article>
+    <!-- Wallet tool ---------------------------------------------------------->
+    <section class="card">
+      <h2>Wallet</h2>
+      <p class="muted">
+        Look up an account this Dojo tracks, or rescan it if a wallet is showing
+        a balance that looks wrong.
+      </p>
+      <label class="field-label" for="xpub-input">xpub, ypub or zpub</label>
+      <div class="copy-row">
+        <input id="xpub-input" type="text" spellcheck="false" autocapitalize="off"
+               placeholder="xpub6C&hellip;">
+        <button class="btn" id="xpub-lookup">Look up</button>
+      </div>
 
-      <article class="card tile">
-        <header class="tile-head">
-          <h3>Tracker</h3>
-          <span class="dot dot--idle" id="dot-tracker"></span>
-        </header>
-        <dl class="rows">
-          <div><dt>Indexed block</dt><dd id="trk-block">&mdash;</dd></div>
-          <div><dt>Node block</dt><dd id="trk-node-block">&mdash;</dd></div>
-          <div><dt>Uptime</dt><dd id="trk-uptime">&mdash;</dd></div>
-          <div><dt>Memory</dt><dd id="trk-memory">&mdash;</dd></div>
+      <div id="xpub-result" hidden>
+        <dl class="rows rows--wide">
+          <div><dt>Tracked</dt><dd id="xpub-tracked">&mdash;</dd></div>
+          <div><dt>Balance</dt><dd id="xpub-balance">&mdash;</dd></div>
+          <div><dt>Transactions</dt><dd id="xpub-ntx">&mdash;</dd></div>
+          <div><dt>Derivation</dt><dd id="xpub-derivation">&mdash;</dd></div>
+          <div><dt>Addresses derived</dt><dd id="xpub-derived">&mdash;</dd></div>
+          <div><dt>First unused</dt><dd id="xpub-unused">&mdash;</dd></div>
         </dl>
-      </article>
 
-      <article class="card tile">
-        <header class="tile-head">
-          <h3>Electrum server</h3>
-          <span class="dot dot--idle" id="dot-indexer"></span>
-        </header>
-        <dl class="rows">
-          <div><dt>Source</dt><dd id="idx-type">&mdash;</dd></div>
-          <div><dt>Tip</dt><dd id="idx-tip">&mdash;</dd></div>
-        </dl>
-        <p class="tile-note muted small" id="idx-note" hidden>
-          Used for importing and rescanning wallets.
-        </p>
-      </article>
+        <details class="details">
+          <summary>Rescan this wallet</summary>
+          <p class="muted small">
+            Derives addresses again and re-checks them against your Electrum
+            server. Raise the lookahead if a wallet used addresses further ahead
+            than Dojo has followed. This can take a while on a large account.
+          </p>
+          <div class="field-pair">
+            <div>
+              <label class="field-label" for="rescan-gap">Lookahead</label>
+              <input id="rescan-gap" type="number" min="0" max="10000" step="10" value="100">
+            </div>
+            <div>
+              <label class="field-label" for="rescan-start">Start index</label>
+              <input id="rescan-start" type="number" min="0" step="1" value="0">
+            </div>
+            <button class="btn" id="xpub-rescan">Rescan</button>
+          </div>
+          <p class="muted small" id="rescan-note" hidden></p>
+        </details>
+      </div>
+      <p class="notice" id="xpub-error" hidden></p>
+    </section>
 
-      <article class="card tile">
-        <header class="tile-head">
-          <h3>Activity</h3>
-          <span class="dot dot--idle" id="dot-activity"></span>
-        </header>
-        <dl class="rows">
-          <div><dt>Wallets connected</dt><dd id="act-clients">&mdash;</dd></div>
-          <div><dt>Transactions sent</dt><dd id="act-pushed">&mdash;</dd></div>
-          <div><dt>Amount sent</dt><dd id="act-amount">&mdash;</dd></div>
+    <!-- Address tool --------------------------------------------------------->
+    <section class="card">
+      <h2>Address</h2>
+      <p class="muted">Check whether this Dojo is tracking an address, and what it has seen.</p>
+      <label class="field-label" for="addr-input">Bitcoin address</label>
+      <div class="copy-row">
+        <input id="addr-input" type="text" spellcheck="false" autocapitalize="off"
+               placeholder="bc1q&hellip;">
+        <button class="btn" id="addr-lookup">Look up</button>
+      </div>
+
+      <div id="addr-result" hidden>
+        <dl class="rows rows--wide">
+          <div><dt>Tracked</dt><dd id="addr-tracked">&mdash;</dd></div>
+          <div><dt>Balance</dt><dd id="addr-balance">&mdash;</dd></div>
+          <div><dt>Transactions</dt><dd id="addr-ntx">&mdash;</dd></div>
+          <div><dt>Unspent outputs</dt><dd id="addr-utxo">&mdash;</dd></div>
+          <div><dt>Belongs to</dt><dd id="addr-xpub">&mdash;</dd></div>
+          <div><dt>Path</dt><dd id="addr-path">&mdash;</dd></div>
         </dl>
-        <p class="tile-note muted small">
-          Outgoing transactions are relayed by a random Soroban node, so the
-          one that announces yours is not your own.
-        </p>
-      </article>
+      </div>
+      <p class="notice" id="addr-error" hidden></p>
     </section>
 
     <!-- Pairing ----------------------------------------------------------->

@@ -81,44 +81,13 @@
 		var indexedBlock = accounts ? accounts.blocks : null;
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;
 
-		// Bitcoin node
-		if (bitcoind && bitcoind.up) {
-			dot("dot-bitcoind", "ok");
-			text("btc-version", coreVersion(bitcoind.version));
-			text("btc-peers", number(bitcoind.conn));
-			text("btc-network", bitcoind.testnet ? "testnet" : "mainnet");
-			text("btc-relayfee", relayFee(bitcoind.relayfee));
-		} else {
-			dot("dot-bitcoind", pushtx ? "err" : "idle");
-		}
-
-		// Tracker
-		text("trk-block", number(indexedBlock));
-		text("trk-node-block", number(nodeBlock));
-		text("trk-uptime", accounts && accounts.uptime);
-		text("trk-memory", accounts && accounts.memory);
-		dot("dot-tracker", accounts ? "ok" : "idle");
-
-		// Electrum server
-		text("idx-type", INDEXER_LABELS[indexer.type] || indexer.type);
-		text("idx-tip", number(indexer.maxHeight));
-		if (accounts) {
-			var indexerUp = indexer.maxHeight !== null && indexer.maxHeight !== undefined;
-			dot("dot-indexer", indexerUp ? "ok" : "warn");
-			el("idx-note").hidden = indexerUp;
-			if (!indexerUp) {
-				el("idx-note").textContent =
-					"Not reachable. Wallet imports and rescans need it; everything else keeps working.";
-			}
-		}
-
-		// Activity
-		if (accounts && accounts.ws) text("act-clients", number(accounts.ws.clients));
-		if (pushtx && pushtx.push) {
-			text("act-pushed", number(pushtx.push.count));
-			text("act-amount", pushtx.push.amount ? pushtx.push.amount + " BTC" : "0 BTC");
-			dot("dot-activity", "ok");
-		}
+		dot("dot-bitcoind", bitcoind ? (bitcoind.up ? "ok" : "err") : "idle");
+		dot("dot-tracker", accounts ? "ok" : "err");
+		dot(
+			"dot-indexer",
+			accounts ? (indexer.maxHeight === null || indexer.maxHeight === undefined ? "warn" : "ok") : "idle"
+		);
+		dot("dot-tor", notSet ? "warn" : "ok");
 
 		renderSync(indexedBlock, nodeBlock);
 	}
@@ -128,15 +97,13 @@
 
 		if (indexedBlock === null || indexedBlock === undefined) {
 			text("sync-height", null);
-			el("sync-note").textContent = "Waiting for Dojo…";
+			el("sync-note").textContent = "Waiting for Dojo\u2026";
 			meter.hidden = true;
 			return;
 		}
 
-		text("sync-height", "Block " + number(indexedBlock));
-
 		if (nodeBlock === null) {
-			text("sync-detail", null);
+			text("sync-height", "Block " + number(indexedBlock));
 			el("sync-note").textContent = "Indexed by your Dojo.";
 			meter.hidden = true;
 			setPill("ok", "Running");
@@ -144,18 +111,19 @@
 		}
 
 		var behind = nodeBlock - indexedBlock;
-		text("sync-detail", "node at " + number(nodeBlock));
 
 		if (behind > 1) {
+			text("sync-height", number(behind) + " blocks behind");
 			meter.hidden = false;
 			el("sync-fill").style.width =
 				Math.max(2, Math.min(100, (indexedBlock / nodeBlock) * 100)) + "%";
 			el("sync-note").textContent =
-				behind.toLocaleString() + " block" + (behind === 1 ? "" : "s") + " behind your node.";
+				"Catching up \u2014 block " + number(indexedBlock) + " of " + number(nodeBlock) + ".";
 			setPill("pending", "Syncing");
 		} else {
+			text("sync-height", "At the chain tip");
 			meter.hidden = true;
-			el("sync-note").textContent = "Up to date with your node.";
+			el("sync-note").textContent = "Block " + number(nodeBlock) + ".";
 			setPill("ok", "Running");
 		}
 	}
@@ -306,6 +274,137 @@
 		});
 	}
 
+
+	/* ----------------------------------------------------------------- tools */
+
+	function notice(id, message, kind) {
+		var node = el(id);
+		if (!message) {
+			node.hidden = true;
+			return;
+		}
+		node.hidden = false;
+		node.className = "notice" + (kind ? " notice--" + kind : "");
+		node.textContent = message;
+	}
+
+	// Dojo answers errors with a JSON body rather than a plain status, so read
+	// the body before deciding what to tell the user.
+	function readError(response) {
+		return response
+			.json()
+			.catch(function () {
+				return null;
+			})
+			.then(function (body) {
+				var detail = body && (body.error || body.message || body.status);
+				if (typeof detail === "object") detail = JSON.stringify(detail);
+				throw new Error(detail || "request failed (" + response.status + ")");
+			});
+	}
+
+	function supportGet(path) {
+		return fetch(apiBase + "/" + conf.supportPrefix + path, {
+			headers: { Authorization: "Bearer " + state.token }
+		}).then(function (response) {
+			if (!response.ok) return readError(response);
+			return response.json();
+		});
+	}
+
+	function sats(value) {
+		if (typeof value !== "number") return null;
+		return (value / 1e8).toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " BTC";
+	}
+
+	function lookupXpub() {
+		var xpub = el("xpub-input").value.trim();
+		if (!xpub) return;
+		notice("xpub-error", "Looking up\u2026", "busy");
+
+		supportGet("/xpub/" + encodeURIComponent(xpub) + "/info")
+			.then(function (info) {
+				notice("xpub-error", null);
+				el("xpub-result").hidden = false;
+				text("xpub-tracked", info.tracked ? "Yes" : "No — this Dojo has never seen it");
+				text("xpub-balance", sats(info.balance));
+				text("xpub-ntx", number(info.n_tx));
+				text("xpub-derivation", info.derivation);
+				text(
+					"xpub-derived",
+					info.derived ? info.derived.external + " receive / " + info.derived.internal + " change" : null
+				);
+				text(
+					"xpub-unused",
+					info.unused ? info.unused.external + " receive / " + info.unused.internal + " change" : null
+				);
+			})
+			.catch(function (error) {
+				el("xpub-result").hidden = true;
+				notice("xpub-error", error.message);
+			});
+	}
+
+	function rescanXpub() {
+		var xpub = el("xpub-input").value.trim();
+		if (!xpub) return;
+		var gap = el("rescan-gap").value || "0";
+		var start = el("rescan-start").value || "0";
+		var button = el("xpub-rescan");
+
+		button.disabled = true;
+		notice("rescan-note", "Rescanning. This can take several minutes — leave the page open.", "busy");
+
+		supportGet(
+			"/xpub/" + encodeURIComponent(xpub) + "/rescan?gap=" + encodeURIComponent(gap) +
+				"&startidx=" + encodeURIComponent(start)
+		)
+			.then(function (result) {
+				notice("rescan-note", result.status || "Rescan complete", "ok");
+				lookupXpub();
+			})
+			.catch(function (error) {
+				notice("rescan-note", error.message);
+			})
+			.then(function () {
+				button.disabled = false;
+			});
+	}
+
+	function lookupAddress() {
+		var address = el("addr-input").value.trim();
+		if (!address) return;
+		notice("addr-error", "Looking up\u2026", "busy");
+
+		supportGet("/address/" + encodeURIComponent(address) + "/info")
+			.then(function (info) {
+				notice("addr-error", null);
+				el("addr-result").hidden = false;
+				text("addr-tracked", info.tracked ? "Yes" : "No — not tracked by this Dojo");
+				text("addr-balance", sats(info.balance));
+				text("addr-ntx", number(info.n_tx));
+				text("addr-utxo", info.utxo ? number(info.utxo.length) : null);
+				text("addr-xpub", info.xpub || "—");
+				text("addr-path", info.path || "—");
+			})
+			.catch(function (error) {
+				el("addr-result").hidden = true;
+				notice("addr-error", error.message);
+			});
+	}
+
+	function bindTools() {
+		el("xpub-lookup").addEventListener("click", lookupXpub);
+		el("xpub-rescan").addEventListener("click", rescanXpub);
+		el("addr-lookup").addEventListener("click", lookupAddress);
+
+		[["xpub-input", lookupXpub], ["addr-input", lookupAddress]].forEach(function (pair) {
+			el(pair[0]).addEventListener("keydown", function (event) {
+				if (event.key === "Enter") pair[1]();
+			});
+		});
+	}
+
 	/* ------------------------------------------------------------------- init */
 
 	el("dojo-version").textContent = conf.dojoVersion || "—";
@@ -317,6 +416,7 @@
 	);
 	bindCopyAndReveal();
 	bindTabs();
+	bindTools();
 
 	if (notSet) {
 		state.mode = "lan";
