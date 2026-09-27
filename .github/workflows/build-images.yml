@@ -223,6 +223,10 @@ jobs:
           tag="${{ steps.settings.outputs.tag }}"
           digest="$(docker buildx imagetools inspect --format '{{json .Manifest.Digest}}' "${image}:${tag}" | tr -d '"')"
 
+          # Also to stdout: the step summary is only readable in the web UI,
+          # and this line is what gets pasted into the app's compose file.
+          echo "PINNED: ${image}:${tag}@${digest}"
+
           echo "### ${image}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${image}:${tag}@${digest}" >> "$GITHUB_STEP_SUMMARY"
