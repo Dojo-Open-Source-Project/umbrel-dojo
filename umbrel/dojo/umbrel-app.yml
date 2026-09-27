@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3"
+version: "1.29.3-patch.1"
 tagline: Your own private backend for Bitcoin wallets
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -16,8 +16,9 @@ description: >-
 
 
   Open the app to pair a wallet. It shows a QR code you can scan from Ashigaru
-  Wallet or Sentinel, and an endpoint you can paste into wallets that ask for a
-  server URL, over Tor or over your local network.
+  Wallet or Sentinel, and a Tor endpoint you can paste into wallets that ask
+  for a server URL. Tor means your wallet reaches your Dojo from anywhere, not
+  only at home.
 
 
   Dojo also runs a Soroban node. Transactions you broadcast are handed to a
@@ -28,7 +29,16 @@ description: >-
 
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
-releaseNotes: ""
+releaseNotes: >-
+  Fixes the pairing QR code, which stayed empty on a fresh install and said
+  this Dojo had no Tor address. It did have one — the app read the address
+  before Tor had finished publishing it and never looked again. The Connect
+  page now picks the address up as soon as it appears, without a restart.
+
+
+  Pairing over the local network has been removed. A wallet stores a single
+  address, so a wallet paired that way worked at home and then quietly stopped
+  reaching your Dojo anywhere else. Tor works from both.
 
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
