@@ -130,7 +130,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+          # The bare hex, not the sha256: prefixed form -- upload-artifact
+          # rejects ':' in file names, and the merge job adds the prefix back.
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
