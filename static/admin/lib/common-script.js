@@ -22,6 +22,8 @@ const lib_cmn = {
             return `${explorerInfo.url}/transaction/${txid}`
         else if (explorerInfo.type === 'explorer.btc_rpc_explorer')
             return `${explorerInfo.url}/tx/${txid}`
+        else if (explorerInfo.type === 'explorer.mempool_space')
+            return `${explorerInfo.url}/tx/${txid}`
         else
             return null
     },

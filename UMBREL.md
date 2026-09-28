@@ -59,7 +59,48 @@ verifier is the anticipated state, not an error.
 
 Definitely worth upstreaming.
 
-### 3. Files upstream generates at install time
+### 3. `static/admin/lib/common-script.js` — transaction links for Mempool
+
+`getExplorerTxUrl()` branched on the explorer type and returned `null` for
+anything it did not recognise:
+
+```js
+else if (explorerInfo.type === 'explorer.btc_rpc_explorer')
+    return `${explorerInfo.url}/tx/${txid}`
+else
+    return null
+```
+
+`explorer.mempool_space` is a type `keys.index.js` itself can produce, and it is
+the one we configure (Umbrel's Mempool app — see `umbrel/dojo/hooks/pre-start`),
+so every transaction link in the Maintenance Tool fell through to `null`.
+
+That is worse than no link. All five call sites interpolate the result straight
+into markup — `addresses-tools.js:155,183`, `txs-tools.js:75`,
+`xpubs-tools.js:265,293` — so `null` renders as the literal `href="null"`, a
+broken link on every transaction row in the wallet, address and transaction
+tools.
+
+Added the missing branch. Mempool uses the same `/tx/<txid>` path as BTC RPC
+Explorer:
+
+```js
+else if (explorerInfo.type === 'explorer.mempool_space')
+    return `${explorerInfo.url}/tx/${txid}`
+```
+
+Worth upstreaming: this is a gap in upstream's own supported set, not something
+specific to our packaging.
+
+Still unpatched, and pre-existing: when there genuinely is no explorer — stock
+Dojo's default `{type: "explorer.null"}`, or ours before Mempool has published
+its onion — the `href="null"` problem remains, because the callers never check
+for null. Fixing it means touching all five call sites rather than one
+function, which is a larger delta to re-apply on every upstream bump than the
+cosmetic payoff justifies. The state is transient for us: Mempool is a required
+dependency, so the steady state has an explorer.
+
+### 4. Files upstream generates at install time
 
 Upstream's `docker/my-dojo/install/install-scripts.sh` writes several gitignored files on the host
 before `docker compose build` runs. We do not run `dojo.sh`, so `umbrel/scripts/prepare-build.sh`
@@ -71,7 +112,7 @@ makes the same choices, once, for both CI and local builds:
 | `static/admin/conf/index.js` | `index-mainnet.js` or `index-testnet.js` | not generated; nginx serves the network-specific file instead, so the image stays network-agnostic (see `umbrel/images/nginx/`) |
 | `docker/my-dojo/nginx/dojo.conf` | `mainnet.conf` or `testnet.conf` | not used; we build our own nginx image |
 
-### 4. Things deliberately *not* patched
+### 5. Things deliberately *not* patched
 
 - `docker/my-dojo/node/keys.index.js` needs no changes. It already reads `BITCOIND_*`,
   `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`, `NET_DOJO_TOR_IPV4` and the
