@@ -5,7 +5,7 @@ services:
       APP_PORT: 8081
 
   db:
-    image: ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel5@sha256:cd6d03b91c7367db5d91bff1a64b5f3a75c9d08278ad565cda6041f422675530
+    image: ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel6@sha256:a518ca09509ded8844d03c42a05a91cbb94f2af153f2eee17e074c3380c980bc
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -27,7 +27,7 @@ services:
       retries: 6
 
   node:
-    image: ghcr.io/linkinparkrulz/dojo-nodejs:1.29.3-umbrel5@sha256:d7bf1933355fd41371dca2d868ccfec368e9a6688836c90b4ac4d9c737f92a4d
+    image: ghcr.io/linkinparkrulz/dojo-nodejs:1.29.3-umbrel6@sha256:e92f32fe5cee2db26b70b471658f705baa25204458c020e27e135b1cb055f8a4
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -138,7 +138,7 @@ services:
       NODE_URL_ESPLORA_API: https://blockstream.info/testnet
 
   soroban:
-    image: ghcr.io/linkinparkrulz/dojo-soroban:0.4.2-umbrel5@sha256:aa4fb8ad9164f0801a3a0eecad48c079c6b18c55fea3464f7545ce2e4a9f89ee
+    image: ghcr.io/linkinparkrulz/dojo-soroban:0.4.2-umbrel6@sha256:efdde5a04a31a29d948a9a157ddf82fa6fd633c72b313aa104d4415cbd1176d7
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -155,7 +155,7 @@ services:
       - ${APP_DATA_DIR}/data/soroban:/home/soroban/data
 
   nginx:
-    image: ghcr.io/linkinparkrulz/dojo-nginx:1.29.3-umbrel5@sha256:2fa1d251baa1632308fd7b34f9c2e85267fa25c23d87d9db6aa037787b75fff8
+    image: ghcr.io/linkinparkrulz/dojo-nginx:1.29.3-umbrel6@sha256:4560e7ab6a402bd12e3b8482d968f0cc793ea8dfbe9b1c2185e866fc2967482b
     init: true
     restart: on-failure
     user: "1000:1000"
