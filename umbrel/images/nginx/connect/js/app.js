@@ -164,9 +164,41 @@
 		}).svg();
 	}
 
+	/* The Maintenance Tool is served over the hidden service too: torrc points
+	 * the onion at nginx:8080, which serves the same site config as the
+	 * published API port, so /admin/ resolves there already.
+	 *
+	 * Like the pairing address this cannot be built at load time -- the onion
+	 * arrives asynchronously -- so the link stays disabled until it does.
+	 * An anchor has no real disabled state; dropping href is what actually
+	 * stops it navigating, and the attribute drives .btn[disabled] styling.
+	 */
+	function renderDmt() {
+		var link = el("dmt-link");
+		var note = el("dmt-note");
+
+		if (!state.onion) {
+			link.removeAttribute("href");
+			link.setAttribute("disabled", "");
+			link.setAttribute("aria-disabled", "true");
+			note.textContent =
+				"Available once Tor has published this Dojo's address.";
+			return;
+		}
+
+		link.setAttribute("href", "http://" + state.onion + "/admin/");
+		link.removeAttribute("disabled");
+		link.removeAttribute("aria-disabled");
+		note.textContent =
+			"Opens over Tor, so it needs Tor Browser — an .onion address will not " +
+			"load in an ordinary browser.";
+	}
+
 	function renderPairing() {
 		var url = state.endpoint;
 		var hint = el("pairing-hint");
+
+		renderDmt();
 
 		if (!url) {
 			hint.textContent =
@@ -425,10 +457,6 @@
 	el("dojo-version").textContent = conf.dojoVersion || "—";
 	el("network-name").textContent = isTestnet ? "testnet" : "mainnet";
 	el("admin-key").value = conf.adminKey;
-	el("dmt-link").setAttribute(
-		"href",
-		"http://" + conf.deviceDomainName + ":" + conf.dojoApiPort + "/admin/"
-	);
 	bindCopyAndReveal();
 	bindTools();
 

@@ -2,23 +2,25 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.1"
-tagline: Your own private backend for Bitcoin wallets
+version: "1.29.3-patch.2"
+tagline: Your own private backend for Ashigaru and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
   and balances you look up never leave your Umbrel. Pair a wallet to it and
   nobody else learns which coins are yours.
 
 
-  Requires a Bitcoin node and an Electrum server (Electrs or Fulcrum) — install
-  those first. Dojo uses the Electrum server to import and rescan xpubs
-  quickly, and your Bitcoin node for everything else.
+  Requires a Bitcoin node, an Electrum server (Electrs or Fulcrum) and Mempool
+  — install those first. Dojo uses the Electrum server to import and rescan
+  xpubs quickly, your Bitcoin node for everything else, and Mempool as the
+  block explorer your paired wallets open transactions in, so you are not
+  handing your transaction history to a public explorer either.
 
 
   Open the app to pair a wallet. It shows a QR code you can scan from Ashigaru
-  Wallet or Sentinel, and a Tor endpoint you can paste into wallets that ask
-  for a server URL. Tor means your wallet reaches your Dojo from anywhere, not
-  only at home.
+  Wallet, Samourai Wallet or Sentinel, and a Tor endpoint you can paste into
+  wallets that ask for a server URL. Tor means your wallet reaches your Dojo
+  from anywhere, not only at home.
 
 
   Dojo also runs a Soroban node. Transactions you broadcast are handed to a
@@ -30,21 +32,25 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Fixes the pairing QR code, which stayed empty on a fresh install and said
-  this Dojo had no Tor address. It did have one — the app read the address
-  before Tor had finished publishing it and never looked again. The Connect
-  page now picks the address up as soon as it appears, without a restart.
+  Wallets you pair now get a block explorer: your own Mempool, rather than a
+  public one. Opening a transaction from a paired wallet no longer tells a
+  stranger's server which transactions are yours. Mempool is required from this
+  version on, so Umbrel will offer to install it.
 
 
-  Pairing over the local network has been removed. A wallet stores a single
-  address, so a wallet paired that way worked at home and then quietly stopped
-  reaching your Dojo anywhere else. Tor works from both.
+  Wallet instructions now cover Samourai Wallet alongside Ashigaru and
+  Sentinel.
 
+
+  The Maintenance Tool button opens over Tor. It needs Tor Browser — an .onion
+  address will not load in an ordinary browser — and it stays disabled until
+  Tor has published the address.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
   - bitcoin
   - electrs
+  - mempool
 repo: https://github.com/Dojo-Open-Source-Project/samourai-dojo
 support: https://github.com/Dojo-Open-Source-Project/samourai-dojo/issues
 

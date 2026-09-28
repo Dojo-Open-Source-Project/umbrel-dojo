@@ -141,23 +141,22 @@
       <h2>Wallet instructions</h2>
 
       <details class="details" open>
-        <summary>Sparrow Wallet (desktop)</summary>
-        <ol class="steps">
-          <li>Open <b>Preferences &rsaquo; Server</b> and pick <b>Private Electrum</b>, pointing it at
-            your Electrum server &mdash; Dojo does not replace it.</li>
-          <li>Dojo is used by Sparrow for <b>PayNyms</b> and collaborative transactions. Under
-            <b>Tools &rsaquo; Restart in Tor mode</b>, make sure Tor is running.</li>
-          <li>Use the endpoint above wherever a Dojo/Soroban backend is requested.</li>
-        </ol>
-      </details>
-
-      <details class="details">
         <summary>Ashigaru Wallet (Android)</summary>
         <ol class="steps">
           <li>Install Ashigaru Wallet and choose <b>Connect to existing Dojo</b> during setup.</li>
           <li>Tap the QR scanner and scan the code above.</li>
           <li>Finish wallet creation. Ashigaru shows a green indicator once it is talking to
             your Dojo.</li>
+        </ol>
+      </details>
+
+      <details class="details">
+        <summary>Samourai Wallet (Android)</summary>
+        <ol class="steps">
+          <li>During setup choose <b>Connect to existing Dojo</b>, or from an existing wallet
+            open <b>Settings &rsaquo; Transactions &rsaquo; Dojo</b>.</li>
+          <li>Tap the QR scanner and scan the code above.</li>
+          <li>The Dojo indicator turns solid once the wallet is talking to your node.</li>
         </ol>
       </details>
 
@@ -181,6 +180,10 @@
       </p>
       <p>
         <a class="btn" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a>
+      </p>
+      <p class="muted" id="dmt-note">
+        Opens over Tor, so it needs Tor Browser &mdash; an <code>.onion</code> address will not
+        load in an ordinary browser.
       </p>
       <label class="field-label" for="admin-key">Admin key</label>
       <div class="copy-row">

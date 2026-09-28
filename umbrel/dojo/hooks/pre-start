@@ -17,3 +17,26 @@ HS_DIR="${TOR_DATA_DIR}/app-${APP_ID}-api"
 mkdir -p "${HS_DIR}"
 chmod 700 "${HS_DIR}"
 chown 1000:1000 "${HS_DIR}" 2>/dev/null || true
+
+# Mempool's onion, for the explorer entry in the wallet pairing payload.
+#
+# Dojo derives that URL from a Tor hostname file and nothing else -- there is no
+# environment variable for it -- so the only way to point it at Umbrel's Mempool
+# app is to put Mempool's onion where Dojo expects to find its own. The read in
+# keys.index.js is wrapped in try/catch, so an absent file means "no explorer",
+# which is what we want before Mempool has published.
+#
+# Mempool's export falls back to an empty string rather than notyetset.onion the
+# way bitcoin and electrs do, so the guard tests for empty.
+EXPLORER_DIR="${APP_DATA_DIR}/data/explorer"
+
+mkdir -p "${EXPLORER_DIR}"
+chmod 700 "${EXPLORER_DIR}"
+chown 1000:1000 "${EXPLORER_DIR}" 2>/dev/null || true
+
+if [[ -n "${APP_MEMPOOL_HIDDEN_SERVICE:-}" ]]; then
+	printf '%s\n' "${APP_MEMPOOL_HIDDEN_SERVICE}" > "${EXPLORER_DIR}/hostname"
+	chown 1000:1000 "${EXPLORER_DIR}/hostname" 2>/dev/null || true
+else
+	rm -f "${EXPLORER_DIR}/hostname"
+fi

@@ -44,6 +44,10 @@ services:
       # app id is fixed; hooks/pre-start creates it so Docker cannot make it
       # root-owned and lock Tor out of it.
       - ${TOR_DATA_DIR}/app-dojo-api:/var/lib/tor/hsv3dojo:ro
+      # Mempool's onion, for the pairing payload's explorer. A directory, not
+      # the file: hooks/pre-start only writes hostname once Mempool has
+      # published, and an absent file is what tells Dojo there is no explorer.
+      - ${APP_DATA_DIR}/data/explorer:/var/lib/tor/hsv3explorer:ro
     environment:
       # pm2 keeps its state under $HOME; without this it lands on / and the
       # process manager cannot start.
@@ -78,8 +82,17 @@ services:
       INDEXER_PROTOCOL: tcp
       INDEXER_BATCH_SUPPORT: ${APP_DOJO_INDEXER_BATCH_SUPPORT}
 
-      # EXPLORER -- Umbrel ships Mempool and BTC RPC Explorer as their own apps
-      EXPLORER_INSTALL: "off"
+      # EXPLORER -- Umbrel's Mempool app, whose onion goes into the pairing
+      # payload so a paired wallet can open transactions in your own explorer
+      # rather than a public one.
+      #
+      # Dojo builds the explorer URL only from the hostname file below; there is
+      # no environment variable for it. hooks/pre-start writes that file from
+      # Mempool's exported onion, and leaves it absent until the onion exists --
+      # the read is wrapped in try/catch, so absent means "no explorer" rather
+      # than a broken http:// URL.
+      EXPLORER_INSTALL: "on"
+      EXPLORER_TYPE: mempool_space
 
       # SOROBAN / PandoTx
       # Pushed transactions are relayed by a random Soroban node instead of
@@ -151,9 +164,7 @@ services:
     environment:
       COMMON_BTC_NETWORK: ${APP_DOJO_BTC_NETWORK}
       DOJO_VERSION_TAG: 1.29.3
-      DOJO_API_PORT: ${APP_DOJO_API_PORT}
       DOJO_HIDDEN_SERVICE: ${APP_DOJO_HIDDEN_SERVICE}
-      DEVICE_DOMAIN_NAME: ${DEVICE_DOMAIN_NAME}
       NODE_ADMIN_KEY: ${APP_DOJO_NODE_ADMIN_KEY}
       NODE_PREFIX_SUPPORT: support
       NODE_HOST: dojo_node_1
