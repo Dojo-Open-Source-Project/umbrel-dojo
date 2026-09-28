@@ -11,7 +11,9 @@ CONNECT_DIR=/var/www/connect
 
 : "${COMMON_BTC_NETWORK:=bitcoin}"
 : "${DOJO_VERSION_TAG:=}"
+: "${DOJO_API_PORT:=}"
 : "${DOJO_HIDDEN_SERVICE:=notyetset.onion}"
+: "${DEVICE_DOMAIN_NAME:=umbrel.local}"
 : "${NODE_ADMIN_KEY:=}"
 : "${NODE_PREFIX_SUPPORT:=support}"
 : "${NODE_HOST:=node}"
@@ -48,7 +50,7 @@ export DOJO_HIDDEN_SERVICE
 
 # Only the variables listed here are substituted, so anything else that looks
 # like a shell variable in the template survives untouched.
-envsubst '$COMMON_BTC_NETWORK $DOJO_VERSION_TAG $DOJO_HIDDEN_SERVICE $NODE_ADMIN_KEY $NODE_PREFIX_SUPPORT' \
+envsubst '$COMMON_BTC_NETWORK $DOJO_VERSION_TAG $DOJO_API_PORT $DOJO_HIDDEN_SERVICE $DEVICE_DOMAIN_NAME $NODE_ADMIN_KEY $NODE_PREFIX_SUPPORT' \
     < "$CONNECT_DIR/js/conf.template.js" \
     > "$CONNECT_DIR/js/conf.js"
 

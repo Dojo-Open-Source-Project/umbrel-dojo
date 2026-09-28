@@ -5,6 +5,8 @@ var conf = {
   network: "$COMMON_BTC_NETWORK",
   dojoVersion: "$DOJO_VERSION_TAG",
   dojoHiddenService: "$DOJO_HIDDEN_SERVICE",
+  dojoApiPort: "$DOJO_API_PORT",
+  deviceDomainName: "$DEVICE_DOMAIN_NAME",
   adminKey: "$NODE_ADMIN_KEY",
   supportPrefix: "$NODE_PREFIX_SUPPORT"
 };

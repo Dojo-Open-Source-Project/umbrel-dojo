@@ -22,6 +22,10 @@
 
 	var state = { onion: null, endpoint: null, pairing: null, token: null };
 
+	// Static: no onion needed, so this is available immediately and stays valid.
+	var lanEndpoint =
+		"http://" + conf.deviceDomainName + ":" + conf.dojoApiPort + apiBase;
+
 	/* Tor is the only pairing address offered. A wallet stores one URL, so a
 	 * LAN-paired wallet would simply stop working the moment it left the house
 	 * -- silently, and long after the mistake was made.
@@ -143,8 +147,8 @@
 
 	/* --------------------------------------------------------------- pairing */
 
-	function renderQr(payload) {
-		var target = el("qr");
+	function renderQr(id, payload) {
+		var target = el(id);
 		target.innerHTML = "";
 		if (!payload) {
 			var note = document.createElement("div");
@@ -194,11 +198,34 @@
 			"load in an ordinary browser.";
 	}
 
+	/* Build the payload the wallet scans: the server's response with our own
+	 * endpoint injected, since /support/pairing does not supply a URL.
+	 */
+	function payloadFor(url) {
+		if (!state.pairing || !url) return null;
+		var payload = JSON.parse(JSON.stringify(state.pairing));
+		payload.pairing.url = url;
+		return payload;
+	}
+
+	/* The local-network endpoint is static -- it needs no onion -- so it is the
+	 * one thing that still works during a cold first boot. It is deliberately
+	 * behind a closed <details>: a wallet stores a single address, so pairing
+	 * this way produces a wallet that works at home and quietly stops working
+	 * anywhere else. Offered, not suggested.
+	 */
+	function renderLanPairing() {
+		var payload = payloadFor(lanEndpoint);
+		el("endpoint-lan").value = lanEndpoint;
+		renderQr("qr-lan", payload && JSON.stringify(payload));
+	}
+
 	function renderPairing() {
 		var url = state.endpoint;
 		var hint = el("pairing-hint");
 
 		renderDmt();
+		renderLanPairing();
 
 		if (!url) {
 			hint.textContent =
@@ -207,7 +234,7 @@
 				"own, so there is nothing to do but wait.";
 			el("endpoint").value = "";
 			el("pairing-json").textContent = "—";
-			renderQr(null);
+			renderQr("qr", null);
 			return;
 		}
 
@@ -217,16 +244,15 @@
 
 		el("endpoint").value = url;
 
-		if (!state.pairing) {
+		var payload = payloadFor(url);
+		if (!payload) {
 			el("pairing-json").textContent = "—";
-			renderQr(null);
+			renderQr("qr", null);
 			return;
 		}
 
-		var payload = JSON.parse(JSON.stringify(state.pairing));
-		payload.pairing.url = url;
 		el("pairing-json").textContent = JSON.stringify(payload, null, 2);
-		renderQr(JSON.stringify(payload));
+		renderQr("qr", JSON.stringify(payload));
 	}
 
 	/* ----------------------------------------------------------------- wiring */

@@ -42,6 +42,12 @@ releaseNotes: >-
   Sentinel.
 
 
+  Pairing over your local network is still available, now under "Pair over your
+  local network instead" rather than as an equal choice. Tor is the default
+  because a wallet stores one address: pair over the local network and that
+  wallet stops reaching your Dojo as soon as you leave the house.
+
+
   The Maintenance Tool button opens over Tor. It needs Tor Browser — an .onion
   address will not load in an ordinary browser — and it stays disabled until
   Tor has published the address.

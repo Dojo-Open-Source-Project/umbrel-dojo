@@ -134,6 +134,27 @@
           </details>
         </div>
       </div>
+
+      <details class="details" id="lan-details">
+        <summary>Pair over your local network instead</summary>
+        <p class="muted">
+          Faster, and it works before Tor has published &mdash; but a wallet stores
+          one address, and this one only resolves on your home network. A wallet
+          paired this way will stop reaching your Dojo the moment you leave, and
+          the traffic is not encrypted. Prefer the Tor code above unless you have a
+          reason not to, such as reaching this Umbrel over your own VPN.
+        </p>
+        <div class="pairing">
+          <div class="qr" id="qr-lan"><div class="qr-placeholder">Loading&hellip;</div></div>
+          <div class="pairing-detail">
+            <label class="field-label" for="endpoint-lan">Dojo API endpoint (local network)</label>
+            <div class="copy-row">
+              <input id="endpoint-lan" type="text" readonly value="">
+              <button class="btn btn--ghost" data-copy="endpoint-lan">Copy</button>
+            </div>
+          </div>
+        </div>
+      </details>
     </section>
 
     <!-- Wallets ----------------------------------------------------------->
