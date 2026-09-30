@@ -323,10 +323,31 @@
 			});
 	}
 
-	function authedGet(path) {
-		return fetch(apiBase + path, {
+	/* Dojo's admin access token is short-lived -- NODE_JWT_ACCESS_EXPIRES, 15
+	 * minutes in our compose -- and the page authenticates once at load. Without
+	 * renewal, leaving the tab open past that quietly breaks everything: both
+	 * status calls 401, refresh() sees two failures and bails out early, so the
+	 * pill reads "Not reachable" while the block height sits frozen at whatever
+	 * it last saw, looking current. Only a reload recovers it.
+	 *
+	 * We hold the admin key, so re-authenticating costs nothing and is
+	 * invisible. Retry once only: a 401 immediately after a fresh login is a
+	 * real authorization failure, not an expiry, and retrying it would loop.
+	 */
+	function authedFetch(url, retried) {
+		return fetch(url, {
 			headers: { Authorization: "Bearer " + state.token }
 		}).then(function (response) {
+			if (response.status !== 401 || retried) return response;
+			return login().then(function (token) {
+				state.token = token;
+				return authedFetch(url, true);
+			});
+		});
+	}
+
+	function authedGet(path) {
+		return authedFetch(apiBase + path).then(function (response) {
 			if (!response.ok) throw new Error(path + " failed: " + response.status);
 			return response.json();
 		});
@@ -377,12 +398,12 @@
 	}
 
 	function supportGet(path) {
-		return fetch(apiBase + "/" + conf.supportPrefix + path, {
-			headers: { Authorization: "Bearer " + state.token }
-		}).then(function (response) {
-			if (!response.ok) return readError(response);
-			return response.json();
-		});
+		return authedFetch(apiBase + "/" + conf.supportPrefix + path).then(
+			function (response) {
+				if (!response.ok) return readError(response);
+				return response.json();
+			}
+		);
 	}
 
 	function sats(value) {

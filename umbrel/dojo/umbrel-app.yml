@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.2"
+version: "1.29.3-patch.3"
 tagline: Your own private backend for Ashigaru and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -10,11 +10,16 @@ description: >-
   nobody else learns which coins are yours.
 
 
-  Requires a Bitcoin node, an Electrum server (Electrs or Fulcrum) and Mempool
-  — install those first. Dojo uses the Electrum server to import and rescan
-  xpubs quickly, your Bitcoin node for everything else, and Mempool as the
-  block explorer your paired wallets open transactions in, so you are not
-  handing your transaction history to a public explorer either.
+  Requires a Bitcoin node, an Electrum server and Mempool — install those
+  first. Pick Fulcrum as the Electrum server: it answers batched requests, so
+  importing and rescanning an xpub takes a fraction of the time it does on
+  Electrs. Umbrel lists this requirement as Electrs, with Fulcrum among its
+  alternatives.
+
+
+  Dojo uses your Bitcoin node for everything else, and Mempool as the block
+  explorer your paired wallets open transactions in, so you are not handing
+  your transaction history to a public explorer either.
 
 
   Open the app to pair a wallet. It shows a QR code you can scan from Ashigaru
@@ -32,25 +37,16 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Wallets you pair now get a block explorer: your own Mempool, rather than a
-  public one. Opening a transaction from a paired wallet no longer tells a
-  stranger's server which transactions are yours. Mempool is required from this
-  version on, so Umbrel will offer to install it.
+  Fixes the Connect page going quiet if you leave it open. After fifteen
+  minutes the page's admin session expired, and rather than renewing it the
+  page stopped updating: the status turned red and the block height stayed
+  frozen at whatever it last saw, looking current. It now renews the session
+  on its own, so the page keeps working however long it is open.
 
 
-  Wallet instructions now cover Samourai Wallet alongside Ashigaru and
-  Sentinel.
-
-
-  Pairing over your local network is still available, now under "Pair over your
-  local network instead" rather than as an equal choice. Tor is the default
-  because a wallet stores one address: pair over the local network and that
-  wallet stops reaching your Dojo as soon as you leave the house.
-
-
-  The Maintenance Tool button opens over Tor. It needs Tor Browser — an .onion
-  address will not load in an ordinary browser — and it stays disabled until
-  Tor has published the address.
+  Fulcrum is now named as the Electrum server to pick. It answers batched
+  requests, which makes importing and rescanning an xpub far faster than on
+  Electrs.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
