@@ -40,3 +40,39 @@ if [[ -n "${APP_MEMPOOL_HIDDEN_SERVICE:-}" ]]; then
 else
 	rm -f "${EXPLORER_DIR}/hostname"
 fi
+
+# Keep each chain's indexed data apart.
+#
+# Dojo's network follows the Bitcoin Node's, so it can change under us when the
+# user switches their node. The database holds blocks and transactions indexed
+# for one specific chain; starting Dojo on another against the same MariaDB
+# would not fail cleanly, it would write one chain's history into the other's.
+#
+# The mount path stays fixed at data/mysql, because Umbrel's linter requires
+# every bind-mount source to be committed in the package and a path with a
+# variable in it cannot be. So instead of moving the mount, we move the data:
+# the chain in use lives at data/mysql, and every other chain's data is parked
+# beside it under data/mysql.<chain> until it is needed again. Nothing is ever
+# deleted -- switch back and your old index is still there.
+DATA_DIR="${APP_DATA_DIR}/data"
+CHAIN_MARKER="${DATA_DIR}/chain"
+CHAIN="${APP_DOJO_CHAIN:-mainnet}"
+
+mkdir -p "${DATA_DIR}/mysql"
+previous="$(cat "${CHAIN_MARKER}" 2>/dev/null || true)"
+
+if [[ -z "${previous}" ]]; then
+	# First run after this change. Whatever is in data/mysql was indexed for
+	# the chain we are on now -- there was no way to have run another one.
+	printf '%s\n' "${CHAIN}" > "${CHAIN_MARKER}"
+elif [[ "${previous}" != "${CHAIN}" ]]; then
+	echo "Info (${APP_ID}): Bitcoin Node moved from ${previous} to ${CHAIN}; parking the ${previous} index and switching to ${CHAIN}."
+	mv "${DATA_DIR}/mysql" "${DATA_DIR}/mysql.${previous}"
+	if [[ -d "${DATA_DIR}/mysql.${CHAIN}" ]]; then
+		mv "${DATA_DIR}/mysql.${CHAIN}" "${DATA_DIR}/mysql"
+	else
+		mkdir -p "${DATA_DIR}/mysql"
+	fi
+	chown 1000:1000 "${DATA_DIR}/mysql" 2>/dev/null || true
+	printf '%s\n' "${CHAIN}" > "${CHAIN_MARKER}"
+fi

@@ -3,6 +3,7 @@
 // Umbrel keeps behind the user's Umbrel login.
 var conf = {
   network: "$COMMON_BTC_NETWORK",
+  chain: "$DOJO_CHAIN",
   dojoVersion: "$DOJO_VERSION_TAG",
   dojoHiddenService: "$DOJO_HIDDEN_SERVICE",
   dojoApiPort: "$DOJO_API_PORT",

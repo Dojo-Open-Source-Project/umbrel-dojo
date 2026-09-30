@@ -502,7 +502,11 @@
 	/* ------------------------------------------------------------------- init */
 
 	el("dojo-version").textContent = conf.dojoVersion || "—";
-	el("network-name").textContent = isTestnet ? "testnet" : "mainnet";
+	// conf.chain is the chain the Bitcoin Node is actually on. Dojo collapses
+	// testnet3, testnet4 and signet into one "testnet", so prefer the real name
+	// here -- otherwise a signet user is told they are on testnet.
+	el("network-name").textContent =
+		conf.chain || (isTestnet ? "testnet" : "mainnet");
 	el("admin-key").value = conf.adminKey;
 	bindCopyAndReveal();
 	bindTools();

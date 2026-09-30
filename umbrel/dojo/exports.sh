@@ -1,12 +1,32 @@
-# Dojo only knows two networks. Umbrel's Bitcoin Node can also be set to
-# testnet4, signet or regtest, none of which Dojo supports, so say so rather
-# than quietly running against the wrong chain.
+# Dojo follows whichever chain your Bitcoin Node is set to -- it has no network
+# of its own to choose, and pointing it at a chain its bitcoind is not on would
+# only index nonsense.
+#
+# Two names come out of this, because Dojo collapses more than we can afford to.
+# Dojo itself knows exactly two networks: keys.index.js reduces COMMON_BTC_NETWORK
+# to "testnet" or "bitcoin", and lib/bitcoin/network.js then picks bitcoinjs-lib's
+# testnet or mainnet parameters. testnet3, testnet4 and signet all share testnet's
+# address encoding, so all three work under Dojo's "testnet" -- but they are
+# different chains, and their indexed data must never be mixed. So:
+#
+#   APP_DOJO_BTC_NETWORK  what Dojo, nginx and the Connect page see: mainnet|testnet
+#   APP_DOJO_CHAIN        the real chain, which keys the on-disk data
+#
+# regtest is the one we genuinely cannot serve: it uses bcrt1 addresses, and
+# bitcoinjs-lib's testnet parameters would derive the wrong ones.
 case "${APP_BITCOIN_NETWORK-mainnet}" in
-	mainnet) export APP_DOJO_BTC_NETWORK="mainnet" ;;
-	testnet) export APP_DOJO_BTC_NETWORK="testnet" ;;
-	*)
-		echo "Warning (${EXPORTS_APP_ID}): Dojo supports mainnet and testnet only; your Bitcoin Node is set to '${APP_BITCOIN_NETWORK}'. Dojo will run against mainnet and will not sync."
+	mainnet)
 		export APP_DOJO_BTC_NETWORK="mainnet"
+		export APP_DOJO_CHAIN="mainnet"
+		;;
+	testnet | testnet4 | signet)
+		export APP_DOJO_BTC_NETWORK="testnet"
+		export APP_DOJO_CHAIN="${APP_BITCOIN_NETWORK}"
+		;;
+	*)
+		echo "Warning (${EXPORTS_APP_ID}): Dojo cannot run against '${APP_BITCOIN_NETWORK}' -- it supports mainnet, testnet, testnet4 and signet. Set your Bitcoin Node to one of those; Dojo is staying on mainnet until you do."
+		export APP_DOJO_BTC_NETWORK="mainnet"
+		export APP_DOJO_CHAIN="mainnet"
 		;;
 esac
 
