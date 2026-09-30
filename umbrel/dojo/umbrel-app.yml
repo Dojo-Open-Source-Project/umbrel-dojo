@@ -37,11 +37,20 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
+  Dojo now follows your Bitcoin Node onto testnet4 and signet. It always took
+  its chain from your node rather than choosing one, but only recognised
+  mainnet and testnet3 — so since Bitcoin Core made testnet4 what you get when
+  you pick testnet, anyone on testnet had Dojo indexing the wrong chain.
+  Each chain's index is now kept separately, so switching your node back and
+  forth no longer mixes them, and nothing you have already indexed is thrown
+  away.
+
+
   Fixes the Connect page going quiet if you leave it open. After fifteen
   minutes the page's admin session expired, and rather than renewing it the
   page stopped updating: the status turned red and the block height stayed
   frozen at whatever it last saw, looking current. It now renews the session
-  on its own, so the page keeps working however long it is open.
+  on its own.
 
 
   Fulcrum is now named as the Electrum server to pick. It answers batched
