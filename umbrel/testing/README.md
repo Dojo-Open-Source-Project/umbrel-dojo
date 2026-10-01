@@ -20,13 +20,28 @@ admin key for the Maintenance Tool, and the working directory it used:
 The Connect page shows the real `.onion` address: the script re-reads the
 hidden-service hostname once Tor has created it and recreates nginx, which is
 what `exports.sh` does on the next app start. On a genuine first boot there is
-no onion yet and the page falls back to the local-network tab, exactly as it
-does on Umbrel.
+no onion yet; the page then says so, serves `/onion` until Tor publishes, and
+offers local-network pairing in the meantime, exactly as it does on Umbrel.
 
 The service definitions come from `umbrel/dojo/docker-compose.yml` verbatim, via
 `compose-from-package.py`, so the test cannot drift from the package. Only what
 umbrelOS itself supplies is added: injected container names, a regtest bitcoind
 standing in for the Bitcoin Node app, and published ports.
+
+## Connect page tests
+
+```sh
+node umbrel/testing/connect-page-test.mjs
+```
+
+No Docker and no network: `connect/js/app.js` runs in a stubbed DOM against a
+programmable `fetch`, which makes the states that have actually broken in the
+field cheap to assert — a cold start with no onion, the onion arriving without
+a reload, an expired admin session, and a lookup that must not render until
+something has been looked up.
+
+The element stub only answers for ids that appear in `connect/index.html` and
+throws for anything else, so markup and script cannot drift apart silently.
 
 ## What it checks
 
