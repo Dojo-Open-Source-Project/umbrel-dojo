@@ -10,119 +10,84 @@
 </head>
 
 <body>
-  <header class="app-header">
-    <div class="app-mark" aria-hidden="true"></div>
-    <div class="app-title">
-      <h1>Dojo</h1>
-      <p class="muted">Your own private backend for Bitcoin wallets</p>
-    </div>
-    <span class="pill pill--pending" id="status-pill">Checking&hellip;</span>
-  </header>
+  <div class="wrap">
 
-  <main>
-    <!-- Health ------------------------------------------------------------>
-    <section class="card card--hero" aria-labelledby="sync-heading">
-      <h2 id="sync-heading" class="visually-hidden">Status</h2>
-      <div class="hero-figure" id="sync-height">&mdash;</div>
-      <p class="muted" id="sync-note">Waiting for Dojo&hellip;</p>
-      <div class="meter" id="sync-meter" hidden>
-        <div class="meter-fill" id="sync-fill"></div>
+    <header class="app-header">
+      <div class="app-mark" aria-hidden="true"><span></span></div>
+      <div class="app-title">
+        <h1>Dojo</h1>
+        <div class="app-meta">
+          <span class="net" id="network-name">mainnet</span>
+          <span class="muted">v<span id="dojo-version">&mdash;</span></span>
+        </div>
       </div>
-      <ul class="health" aria-label="Services">
-        <li><span class="dot dot--idle" id="dot-bitcoind"></span>Bitcoin node</li>
-        <li><span class="dot dot--idle" id="dot-tracker"></span>Tracker</li>
-        <li><span class="dot dot--idle" id="dot-indexer"></span>Electrum server</li>
-        <li><span class="dot dot--idle" id="dot-tor"></span>Tor</li>
-      </ul>
+      <div class="spacer"></div>
+      <button class="btn" type="button" id="pair-toggle" aria-expanded="false" aria-controls="pair-panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M17 20v.01M20 17v.01"/>
+        </svg>
+        Pair wallet
+      </button>
+    </header>
+
+    <!-- Chain state and services, one brand surface --------------------->
+    <section class="band" aria-labelledby="band-heading">
+      <h2 id="band-heading" class="visually-hidden">Status</h2>
+      <div class="band-main">
+        <div class="live"><span class="lamp"></span><span id="uptime-note">Checking&hellip;</span></div>
+        <div class="headline" id="chain-headline">&mdash;</div>
+        <div class="counts" id="chain-counts">Waiting for Dojo&hellip;</div>
+        <div class="prog" id="sync-meter" hidden>
+          <div class="bar"><span id="sync-fill"></span></div>
+          <div class="pct" id="sync-pct"></div>
+        </div>
+      </div>
+      <div class="band-svc">
+        <h3>Services</h3>
+        <div class="svc">
+          <div class="top"><span class="nm">Bitcoin node</span><span class="health" id="svc-bitcoind">&mdash;</span></div>
+          <div class="about" id="about-bitcoind">Your Bitcoin Node app</div>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="nm">Electrum server</span><span class="health" id="svc-indexer">&mdash;</span></div>
+          <div class="about" id="about-indexer">&mdash;</div>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="nm">Tracker</span><span class="health" id="svc-tracker">&mdash;</span></div>
+          <div class="about" id="about-tracker">&mdash;</div>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="nm">Tor</span><span class="health" id="svc-tor">&mdash;</span></div>
+          <div class="about" id="about-tor">&mdash;</div>
+        </div>
+        <!-- Soroban reports configuration, never health: /support/services
+             only says whether an RPC is configured, so this row is deliberately
+             neutral and never claims "Healthy". -->
+        <div class="svc">
+          <div class="top"><span class="nm">Soroban</span><span class="health health--idle" id="svc-soroban">Enabled</span></div>
+          <div class="about">PandoTx relay, push only</div>
+        </div>
+      </div>
     </section>
 
-    <!-- Wallet tool ---------------------------------------------------------->
-    <section class="card">
-      <h2>Wallet</h2>
-      <p class="muted">
-        Look up an account this Dojo tracks, or rescan it if a wallet is showing
-        a balance that looks wrong.
-      </p>
-      <label class="field-label" for="xpub-input">xpub, ypub or zpub</label>
-      <div class="copy-row">
-        <input id="xpub-input" type="text" spellcheck="false" autocapitalize="off"
-               placeholder="xpub6C&hellip;">
-        <button class="btn" id="xpub-lookup">Look up</button>
-      </div>
+    <p class="alert alert--warn" id="tor-alert" hidden>
+      <b>Tor is still publishing this Dojo's address.</b> Pairing opens on its own
+      once it lands, usually within a minute of a first start.
+    </p>
 
-      <div id="xpub-result" hidden>
-        <dl class="rows rows--wide">
-          <div><dt>Tracked</dt><dd id="xpub-tracked">&mdash;</dd></div>
-          <div><dt>Balance</dt><dd id="xpub-balance">&mdash;</dd></div>
-          <div><dt>Transactions</dt><dd id="xpub-ntx">&mdash;</dd></div>
-          <div><dt>Derivation</dt><dd id="xpub-derivation">&mdash;</dd></div>
-          <div><dt>Addresses derived</dt><dd id="xpub-derived">&mdash;</dd></div>
-          <div><dt>First unused</dt><dd id="xpub-unused">&mdash;</dd></div>
-        </dl>
-
-        <details class="details">
-          <summary>Rescan this wallet</summary>
-          <p class="muted small">
-            Derives addresses again and re-checks them against your Electrum
-            server. Raise the lookahead if a wallet used addresses further ahead
-            than Dojo has followed. This can take a while on a large account.
-          </p>
-          <div class="field-pair">
-            <div>
-              <label class="field-label" for="rescan-gap">Lookahead</label>
-              <input id="rescan-gap" type="number" min="0" max="10000" step="10" value="100">
-            </div>
-            <div>
-              <label class="field-label" for="rescan-start">Start index</label>
-              <input id="rescan-start" type="number" min="0" step="1" value="0">
-            </div>
-            <button class="btn" id="xpub-rescan">Rescan</button>
-          </div>
-          <p class="muted small" id="rescan-note" hidden></p>
-        </details>
-      </div>
-      <p class="notice" id="xpub-error" hidden></p>
-    </section>
-
-    <!-- Address tool --------------------------------------------------------->
-    <section class="card">
-      <h2>Address</h2>
-      <p class="muted">Check whether this Dojo is tracking an address, and what it has seen.</p>
-      <label class="field-label" for="addr-input">Bitcoin address</label>
-      <div class="copy-row">
-        <input id="addr-input" type="text" spellcheck="false" autocapitalize="off"
-               placeholder="bc1q&hellip;">
-        <button class="btn" id="addr-lookup">Look up</button>
-      </div>
-
-      <div id="addr-result" hidden>
-        <dl class="rows rows--wide">
-          <div><dt>Tracked</dt><dd id="addr-tracked">&mdash;</dd></div>
-          <div><dt>Balance</dt><dd id="addr-balance">&mdash;</dd></div>
-          <div><dt>Transactions</dt><dd id="addr-ntx">&mdash;</dd></div>
-          <div><dt>Unspent outputs</dt><dd id="addr-utxo">&mdash;</dd></div>
-          <div><dt>Belongs to</dt><dd id="addr-xpub">&mdash;</dd></div>
-          <div><dt>Path</dt><dd id="addr-path">&mdash;</dd></div>
-        </dl>
-      </div>
-      <p class="notice" id="addr-error" hidden></p>
-    </section>
-
-    <!-- Pairing ----------------------------------------------------------->
-    <section class="card">
+    <!-- Pairing ---------------------------------------------------------->
+    <section class="panel" id="pair-panel" hidden>
       <h2>Pair a wallet</h2>
-      <p class="muted">
-        Scan this with a wallet that supports Dojo, or copy the endpoint into
-        one that asks for a server URL.
+      <p class="muted" id="pairing-hint">
+        This is your Dojo's Tor address. It works from anywhere, not just at
+        home, and keeps the connection private. Your wallet needs Tor enabled.
       </p>
 
       <div class="pairing">
         <div class="qr" id="qr"><div class="qr-placeholder">Loading&hellip;</div></div>
         <div class="pairing-detail">
-          <p class="muted" id="pairing-hint">
-            This is your Dojo's Tor address. It works from anywhere, not just at
-            home, and keeps the connection private. Your wallet needs Tor enabled.
-          </p>
           <label class="field-label" for="endpoint">Dojo API endpoint</label>
           <div class="copy-row">
             <input id="endpoint" type="text" readonly value="">
@@ -135,7 +100,7 @@
         </div>
       </div>
 
-      <details class="details" id="lan-details">
+      <details class="details">
         <summary>Pair over your local network instead</summary>
         <p class="muted">
           Faster, and it works before Tor has published &mdash; but a wallet stores
@@ -155,13 +120,8 @@
           </div>
         </div>
       </details>
-    </section>
 
-    <!-- Wallets ----------------------------------------------------------->
-    <section class="card">
-      <h2>Wallet instructions</h2>
-
-      <details class="details" open>
+      <details class="details">
         <summary>Ashigaru Wallet (Android)</summary>
         <ol class="steps">
           <li>Install Ashigaru Wallet and choose <b>Connect to existing Dojo</b> during setup.</li>
@@ -192,33 +152,145 @@
       </details>
     </section>
 
-    <!-- Admin ------------------------------------------------------------->
+    <!-- Paired wallets --------------------------------------------------->
     <section class="card">
-      <h2>Maintenance tool</h2>
-      <p class="muted">
-        Inspect xpubs, rescan addresses, manage API keys and run blocks
-        rescans.
-      </p>
-      <p>
-        <a class="btn" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a>
-      </p>
-      <p class="muted" id="dmt-note">
-        Opens over Tor, so it needs Tor Browser &mdash; an <code>.onion</code> address will not
-        load in an ordinary browser.
-      </p>
-      <label class="field-label" for="admin-key">Admin key</label>
-      <div class="copy-row">
-        <input id="admin-key" type="password" readonly value="">
-        <button class="btn btn--ghost" data-reveal="admin-key">Show</button>
-        <button class="btn btn--ghost" data-copy="admin-key">Copy</button>
+      <div class="card-head">
+        <h2><span class="rule" aria-hidden="true"></span>Paired wallets</h2>
+        <span class="spacer"></span>
+        <span class="muted small">1 key</span>
+      </div>
+
+      <div class="wallets">
+        <!-- The key Umbrel derives for this app. It lives in the container's
+             environment, not the api_keys table, so it cannot be revoked from
+             here -- and every wallet paired so far is using it. Saying so is
+             the honest alternative to a list that implies otherwise. -->
+        <div class="wcard">
+          <div class="top"><span class="nm">Default key</span></div>
+          <span class="pill pill--ok">Authorized</span>
+          <div class="sub">Used by every wallet paired with the code above.</div>
+          <div class="note muted small">
+            Derived by Umbrel for this app. It cannot be revoked from this page;
+            reinstalling the app is what replaces it.
+          </div>
+        </div>
+
+        <button class="wcard wcard--add" type="button" id="pair-toggle-2">
+          <span class="plus" aria-hidden="true">+</span>
+          <span class="lbl">Pair wallet</span>
+        </button>
       </div>
     </section>
-  </main>
 
-  <footer class="app-footer muted">
-    <span>Dojo <span id="dojo-version">&mdash;</span> &middot; <span id="network-name">mainnet</span></span>
-    <a href="https://github.com/Dojo-Open-Source-Project/samourai-dojo" target="_blank" rel="noopener">Dojo Open Source Project</a>
-  </footer>
+    <!-- Look up ---------------------------------------------------------->
+    <section class="card">
+      <h2><span class="rule" aria-hidden="true"></span>Look up a wallet or address</h2>
+      <label class="field-label" for="lookup-input">Extended public key or address</label>
+      <div class="copy-row">
+        <input id="lookup-input" type="text" spellcheck="false" autocapitalize="off"
+               autocomplete="off" placeholder="xpub&hellip; or a single address">
+        <button class="btn" id="lookup-btn">Look up</button>
+      </div>
+      <p class="muted small">
+        An xpub, ypub, zpub or vpub, or one address. Whichever you paste, this
+        Dojo only answers for what it already tracks.
+      </p>
+      <p class="notice" id="lookup-error" hidden></p>
+
+      <div class="lookres" id="lookup-result" hidden>
+        <h3 id="result-title">&mdash;</h3>
+        <div class="said" id="result-said"></div>
+        <div class="resgrid">
+          <dl class="big">
+            <div><dt>Balance</dt><dd id="result-balance">&mdash;</dd></div>
+            <div><dt>Transactions</dt><dd id="result-ntx">&mdash;</dd></div>
+          </dl>
+          <dl class="meta" id="result-meta"></dl>
+        </div>
+        <div class="resacts">
+          <button class="btn btn--ghost btn--sm" data-copy="lookup-input">Copy</button>
+          <button class="btn btn--ghost btn--sm" type="button" id="result-rescan">Rescan this</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Advanced maintenance --------------------------------------------->
+    <details class="tool" id="maint">
+      <summary>Advanced maintenance</summary>
+      <div class="tool-body">
+        <p class="muted">
+          Rescanning re-reads history from your Electrum server and Bitcoin
+          node. It does not move funds and cannot lose data, but a large wallet
+          can take several minutes.
+        </p>
+
+        <label class="field-label" for="rescan-target">Wallet or address to rescan</label>
+        <div class="copy-row">
+          <input id="rescan-target" type="text" spellcheck="false" autocapitalize="off"
+                 autocomplete="off" placeholder="xpub&hellip; or a single address">
+        </div>
+        <div class="field-pair">
+          <div>
+            <label class="field-label" for="rescan-gap">Address gap limit</label>
+            <input id="rescan-gap" type="number" min="0" max="10000" step="10" value="100">
+          </div>
+          <div>
+            <label class="field-label" for="rescan-start">Start from index</label>
+            <input id="rescan-start" type="number" min="0" step="1" value="0">
+          </div>
+          <div class="field-pair-action">
+            <button class="btn btn--ghost" id="rescan-run">Start rescan</button>
+          </div>
+        </div>
+        <p class="notice" id="rescan-note" hidden></p>
+
+        <div class="tool-split">
+          <h3>Rescan a range of blocks</h3>
+          <p class="muted">Only needed if the tracker missed a stretch of chain.</p>
+          <div class="field-pair">
+            <div>
+              <label class="field-label" for="blocks-from">From block</label>
+              <input id="blocks-from" type="number" min="0" step="1">
+            </div>
+            <div>
+              <label class="field-label" for="blocks-to">To block</label>
+              <input id="blocks-to" type="number" min="0" step="1">
+            </div>
+            <div class="field-pair-action">
+              <button class="btn btn--ghost" id="blocks-run">Start rescan</button>
+            </div>
+          </div>
+          <p class="notice" id="blocks-note" hidden></p>
+        </div>
+
+        <div class="tool-split">
+          <h3>Maintenance Tool</h3>
+          <p class="muted">
+            Dojo's own admin interface. Everything above is here too; this also
+            manages API keys.
+          </p>
+          <p><a class="btn btn--ghost" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a></p>
+          <p class="muted small" id="dmt-note">
+            Opens over Tor, so it needs Tor Browser &mdash; an <code>.onion</code>
+            address will not load in an ordinary browser.
+          </p>
+          <label class="field-label" for="admin-key">Admin key</label>
+          <div class="copy-row">
+            <input id="admin-key" type="password" readonly value="">
+            <button class="btn btn--ghost" data-reveal="admin-key">Show</button>
+            <button class="btn btn--ghost" data-copy="admin-key">Copy</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <footer class="app-footer muted">
+      <span>Dojo Open Source Project</span>
+      <span class="spacer"></span>
+      <a href="https://github.com/Dojo-Open-Source-Project/samourai-dojo" target="_blank" rel="noopener">Source</a>
+    </footer>
+
+  </div>
 
   <script src="js/qrcode.min.js"></script>
   <script src="js/conf.js"></script>

@@ -6,8 +6,8 @@
  * needs CORS.
  *
  * Status comes from two separate Dojo services:
- *   /v2/status/         accounts  -- uptime, memory, websocket clients,
- *                                   indexed block height, indexer state
+ *   /v2/status/         accounts  -- uptime, websocket clients, indexed block
+ *                                   height, indexer state
  *   /v2/pushtx/status/  pushtx    -- the Bitcoin node's own figures, and
  *                                   how many transactions have been broadcast
  * Both require the admin profile, which the JWT below provides.
@@ -20,17 +20,22 @@
 	var isTestnet = conf.network === "testnet";
 	var apiBase = isTestnet ? "/test/v2" : "/v2";
 
+	/* Extended keys are the only thing with a recognisable prefix, so the
+	 * lookup routes on that and treats everything else as an address.
+	 * Deliberately not trial-and-error: a bech32 address is alphanumeric and
+	 * would sail through validateArgsGetXpubInfo's isAlphanumeric check, so
+	 * "try the xpub route and see if it fails" is not reliable. The uppercase
+	 * variants (Ypub, Zpub, Vpub, Upub) are the multisig forms.
+	 */
+	var EXT_KEY = /^(x|y|z|v|t|u)pub/i;
+
 	var state = { onion: null, endpoint: null, pairing: null, token: null };
 
 	// Static: no onion needed, so this is available immediately and stays valid.
 	var lanEndpoint =
 		"http://" + conf.deviceDomainName + ":" + conf.dojoApiPort + apiBase;
 
-	/* Tor is the only pairing address offered. A wallet stores one URL, so a
-	 * LAN-paired wallet would simply stop working the moment it left the house
-	 * -- silently, and long after the mistake was made.
-	 *
-	 * The address cannot come from conf.js alone: exports.sh resolves it before
+	/* The address cannot come from conf.js alone: exports.sh resolves it before
 	 * any container exists, so on a first install it is always notyetset.onion
 	 * and the container's environment can never be updated. nginx serves the
 	 * real file at /onion, which pollOnion() picks up, so the page fills itself
@@ -54,16 +59,6 @@
 		el(id).textContent = value === null || value === undefined || value === "" ? "—" : value;
 	}
 
-	function dot(id, kind) {
-		el(id).className = "dot dot--" + kind;
-	}
-
-	function setPill(kind, label) {
-		var pill = el("status-pill");
-		pill.className = "pill pill--" + kind;
-		pill.textContent = label;
-	}
-
 	function number(value) {
 		return typeof value === "number" && value >= 0 ? value.toLocaleString() : null;
 	}
@@ -77,20 +72,20 @@
 		return major + "." + minor + (patch ? "." + patch : "");
 	}
 
-	/* relayfee is BTC per kvB; wallets think in sat/vB. */
-	function relayFee(value) {
-		if (typeof value !== "number" || value <= 0) return null;
-		var satPerVbyte = (value * 1e8) / 1000;
-		return satPerVbyte.toFixed(satPerVbyte < 1 ? 2 : 1) + " sat/vB";
+	function sats(value) {
+		if (typeof value !== "number") return null;
+		return (value / 1e8).toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " BTC";
 	}
 
-	var INDEXER_LABELS = {
-		local_indexer: "Electrum server",
-		local_bitcoind: "Bitcoin node",
-		third_party_explorer: "Third party"
-	};
-
 	/* ---------------------------------------------------------------- status */
+
+	// One service row: a word, a lamp, and a line of detail under it.
+	function svc(id, kind, label, about) {
+		var node = el("svc-" + id);
+		node.className = "health" + (kind ? " health--" + kind : "");
+		node.textContent = label;
+		if (about !== undefined) text("about-" + id, about);
+	}
 
 	function renderStatus(accounts, pushtx) {
 		var bitcoind = (pushtx && pushtx.bitcoind) || null;
@@ -98,51 +93,85 @@
 		var indexedBlock = accounts ? accounts.blocks : null;
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;
 
-		dot("dot-bitcoind", bitcoind ? (bitcoind.up ? "ok" : "err") : "idle");
-		dot("dot-tracker", accounts ? "ok" : "err");
-		dot(
-			"dot-indexer",
-			accounts ? (indexer.maxHeight === null || indexer.maxHeight === undefined ? "warn" : "ok") : "idle"
-		);
-		dot("dot-tor", state.onion ? "ok" : "warn");
+		if (bitcoind && bitcoind.up) {
+			// Built piecewise: either figure can be missing, and concatenating
+			// blindly yields "Core 12 peers" or "null peers".
+			var about = [];
+			var version = coreVersion(bitcoind.version);
+			var peers = number(bitcoind.conn);
+			if (version) about.push("Core " + version);
+			if (peers !== null) about.push(peers + " peers");
+			svc("bitcoind", "ok", "Healthy", about.join(" · ") || "Connected");
+		} else {
+			svc("bitcoind", "err", "Unavailable", "Not answering RPC");
+		}
 
-		renderSync(indexedBlock, nodeBlock);
+		if (!accounts) {
+			svc("indexer", "idle", "Unknown", "Dojo is not answering");
+		} else if (indexer.maxHeight === null || indexer.maxHeight === undefined) {
+			svc("indexer", "warn", "Starting", "No chain tip yet");
+		} else {
+			svc("indexer", "ok", "Healthy", "Chain tip " + number(indexer.maxHeight));
+		}
+
+		svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting",
+			state.onion ? "Hidden service published" : "Publishing hidden service");
+
+		el("tor-alert").hidden = !!state.onion;
+
+		renderChain(accounts, indexedBlock, nodeBlock);
 	}
 
-	function renderSync(indexedBlock, nodeBlock) {
+	/* The band. One statement of where the tracker is, the counts under it, and
+	 * a progress bar only when there is progress to show.
+	 */
+	function renderChain(accounts, indexedBlock, nodeBlock) {
 		var meter = el("sync-meter");
 
+		text("uptime-note", accounts && accounts.uptime ? "Running for " + accounts.uptime : "Starting up");
+
 		if (indexedBlock === null || indexedBlock === undefined) {
-			text("sync-height", null);
-			el("sync-note").textContent = "Waiting for Dojo\u2026";
+			text("chain-headline", "Starting up");
+			text("chain-counts", "Waiting for Dojo to report a block height.");
 			meter.hidden = true;
+			svc("tracker", "warn", "Starting", "No block height yet");
 			return;
 		}
 
 		if (nodeBlock === null) {
-			text("sync-height", "Block " + number(indexedBlock));
-			el("sync-note").textContent = "Indexed by your Dojo.";
+			text("chain-headline", "Block " + number(indexedBlock));
+			text("chain-counts", "Indexed by your Dojo.");
 			meter.hidden = true;
-			setPill("ok", "Running");
+			svc("tracker", "ok", "Healthy", "Indexed to " + number(indexedBlock));
 			return;
 		}
 
 		var behind = nodeBlock - indexedBlock;
 
 		if (behind > 1) {
-			text("sync-height", number(behind) + " blocks behind");
+			var pct = Math.max(0, Math.min(100, (indexedBlock / nodeBlock) * 100));
+			text("chain-headline", "Syncing " + pct.toFixed(1) + "%");
+			text("chain-counts", number(indexedBlock) + " of " + number(nodeBlock) + " blocks");
 			meter.hidden = false;
-			el("sync-fill").style.width =
-				Math.max(2, Math.min(100, (indexedBlock / nodeBlock) * 100)) + "%";
-			el("sync-note").textContent =
-				"Catching up \u2014 block " + number(indexedBlock) + " of " + number(nodeBlock) + ".";
-			setPill("pending", "Syncing");
+			el("sync-fill").style.width = Math.max(2, pct) + "%";
+			text("sync-pct", number(behind) + " blocks to go");
+			svc("tracker", "warn", "Syncing", number(behind) + " blocks behind");
 		} else {
-			text("sync-height", "At the chain tip");
+			text("chain-headline", "At the chain tip");
+			text("chain-counts", number(nodeBlock) + " of " + number(nodeBlock) + " blocks");
 			meter.hidden = true;
-			el("sync-note").textContent = "Block " + number(nodeBlock) + ".";
-			setPill("ok", "Running");
+			svc("tracker", "ok", "Healthy", "At the chain tip");
 		}
+	}
+
+	function unreachable(detail) {
+		text("uptime-note", "Not reachable");
+		text("chain-headline", "Not reachable");
+		text("chain-counts", detail);
+		el("sync-meter").hidden = true;
+		["bitcoind", "indexer", "tracker"].forEach(function (id) {
+			svc(id, "err", "Unavailable", "Dojo is not answering");
+		});
 	}
 
 	/* --------------------------------------------------------------- pairing */
@@ -213,6 +242,10 @@
 	 * behind a closed <details>: a wallet stores a single address, so pairing
 	 * this way produces a wallet that works at home and quietly stops working
 	 * anywhere else. Offered, not suggested.
+	 *
+	 * It is also why the Pair wallet button is never disabled while Tor is
+	 * still publishing: that is exactly the window in which this is the only
+	 * way to pair, so hiding the panel would hide the one path that works.
 	 */
 	function renderLanPairing() {
 		var payload = payloadFor(lanEndpoint);
@@ -231,7 +264,7 @@
 			hint.textContent =
 				"Tor is still publishing this Dojo's address. This usually takes " +
 				"under a minute on a first start; the code will appear here on its " +
-				"own, so there is nothing to do but wait.";
+				"own. Until then you can pair over your local network, below.";
 			el("endpoint").value = "";
 			el("pairing-json").textContent = "—";
 			renderQr("qr", null);
@@ -253,6 +286,13 @@
 
 		el("pairing-json").textContent = JSON.stringify(payload, null, 2);
 		renderQr("qr", JSON.stringify(payload));
+	}
+
+	function openPair(on) {
+		var panel = el("pair-panel");
+		panel.hidden = !on;
+		el("pair-toggle").setAttribute("aria-expanded", String(on));
+		if (on) panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 	}
 
 	/* ----------------------------------------------------------------- wiring */
@@ -304,7 +344,12 @@
 				return "";
 			})
 			.then(function (value) {
-				if (setOnion(value)) renderPairing();
+				if (setOnion(value)) {
+					renderPairing();
+					svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting",
+						state.onion ? "Hidden service published" : "Publishing hidden service");
+					el("tor-alert").hidden = !!state.onion;
+				}
 			});
 	}
 
@@ -327,7 +372,7 @@
 	 * minutes in our compose -- and the page authenticates once at load. Without
 	 * renewal, leaving the tab open past that quietly breaks everything: both
 	 * status calls 401, refresh() sees two failures and bails out early, so the
-	 * pill reads "Not reachable" while the block height sits frozen at whatever
+	 * page reads "Not reachable" while the block height sits frozen at whatever
 	 * it last saw, looking current. Only a reload recovers it.
 	 *
 	 * We hold the admin key, so re-authenticating costs nothing and is
@@ -361,13 +406,12 @@
 			authedGet("/pushtx/status/").catch(function () { return null; })
 		]).then(function (results) {
 			if (!results[0] && !results[1]) {
-				setPill("err", "Not reachable");
+				unreachable("Neither Dojo service answered. It may still be starting.");
 				return;
 			}
 			renderStatus(results[0], results[1]);
 		});
 	}
-
 
 	/* ----------------------------------------------------------------- tools */
 
@@ -397,65 +441,103 @@
 			});
 	}
 
+	function unwrap(response) {
+		if (!response.ok) return readError(response);
+		return response.json();
+	}
+
 	function supportGet(path) {
-		return authedFetch(apiBase + "/" + conf.supportPrefix + path).then(
-			function (response) {
-				if (!response.ok) return readError(response);
-				return response.json();
-			}
-		);
+		return authedFetch(apiBase + "/" + conf.supportPrefix + path).then(unwrap);
 	}
 
-	function sats(value) {
-		if (typeof value !== "number") return null;
-		return (value / 1e8).toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " BTC";
+	// The tracker is a separate service on its own port; connect.conf proxies
+	// its rescan route the same way the main site config proxies /v2/tracker/.
+	function trackerGet(path) {
+		return authedFetch(apiBase + "/tracker/" + conf.supportPrefix + path).then(unwrap);
 	}
 
-	function lookupXpub() {
-		var xpub = el("xpub-input").value.trim();
-		if (!xpub) return;
-		notice("xpub-error", "Looking up\u2026", "busy");
+	function row(term, value, mono) {
+		var wrap = document.createElement("div");
+		var dt = document.createElement("dt");
+		var dd = document.createElement("dd");
+		dt.textContent = term;
+		dd.textContent = value === null || value === undefined || value === "" ? "—" : value;
+		if (mono) dd.className = "mono";
+		wrap.appendChild(dt);
+		wrap.appendChild(dd);
+		return wrap;
+	}
 
-		supportGet("/xpub/" + encodeURIComponent(xpub) + "/info")
+	function pair(counts) {
+		if (!counts) return null;
+		return counts.external + " receive / " + counts.internal + " change";
+	}
+
+	/* One input, one result. The derivation detail fills the space beside the
+	 * figures rather than hiding behind a disclosure, and the whole block stays
+	 * absent until something has actually been looked up.
+	 */
+	function lookup() {
+		var value = el("lookup-input").value.trim();
+		if (!value) return;
+
+		var isKey = EXT_KEY.test(value);
+		notice("lookup-error", "Looking up…", "busy");
+
+		supportGet(
+			(isKey ? "/xpub/" : "/address/") + encodeURIComponent(value) + "/info"
+		)
 			.then(function (info) {
-				notice("xpub-error", null);
-				el("xpub-result").hidden = false;
-				text("xpub-tracked", info.tracked ? "Yes" : "No — this Dojo has never seen it");
-				text("xpub-balance", sats(info.balance));
-				text("xpub-ntx", number(info.n_tx));
-				text("xpub-derivation", info.derivation);
-				text(
-					"xpub-derived",
-					info.derived ? info.derived.external + " receive / " + info.derived.internal + " change" : null
-				);
-				text(
-					"xpub-unused",
-					info.unused ? info.unused.external + " receive / " + info.unused.internal + " change" : null
-				);
+				notice("lookup-error", null);
+				el("lookup-result").hidden = false;
+				text("result-title", info.tracked ? "Tracked by this Dojo" : "Not tracked by this Dojo");
+				text("result-said", value);
+				text("result-balance", sats(info.balance));
+				text("result-ntx", number(info.n_tx));
+
+				var meta = el("result-meta");
+				meta.innerHTML = "";
+				if (isKey) {
+					meta.appendChild(row("Derivation path", info.derivation, true));
+					meta.appendChild(row("Addresses derived", pair(info.derived)));
+					meta.appendChild(row("First unused", pair(info.unused)));
+				} else {
+					meta.appendChild(row("Unspent outputs", info.utxo ? number(info.utxo.length) : null));
+					meta.appendChild(row("Belongs to", info.xpub, true));
+					meta.appendChild(row("Path", info.path, true));
+				}
 			})
 			.catch(function (error) {
-				el("xpub-result").hidden = true;
-				notice("xpub-error", error.message);
+				el("lookup-result").hidden = true;
+				notice("lookup-error", error.message);
 			});
 	}
 
-	function rescanXpub() {
-		var xpub = el("xpub-input").value.trim();
-		if (!xpub) return;
-		var gap = el("rescan-gap").value || "0";
-		var start = el("rescan-start").value || "0";
-		var button = el("xpub-rescan");
+	function rescan() {
+		var value = el("rescan-target").value.trim();
+		if (!value) return;
+
+		var isKey = EXT_KEY.test(value);
+		var button = el("rescan-run");
+		var path;
+
+		if (isKey) {
+			path =
+				"/xpub/" + encodeURIComponent(value) + "/rescan" +
+				"?gap=" + encodeURIComponent(el("rescan-gap").value || "0") +
+				"&startidx=" + encodeURIComponent(el("rescan-start").value || "0");
+		} else {
+			// The address route takes no lookahead arguments; the two fields
+			// above apply to extended keys only.
+			path = "/address/" + encodeURIComponent(value) + "/rescan";
+		}
 
 		button.disabled = true;
 		notice("rescan-note", "Rescanning. This can take several minutes — leave the page open.", "busy");
 
-		supportGet(
-			"/xpub/" + encodeURIComponent(xpub) + "/rescan?gap=" + encodeURIComponent(gap) +
-				"&startidx=" + encodeURIComponent(start)
-		)
+		supportGet(path)
 			.then(function (result) {
 				notice("rescan-note", result.status || "Rescan complete", "ok");
-				lookupXpub();
 			})
 			.catch(function (error) {
 				notice("rescan-note", error.message);
@@ -465,38 +547,51 @@
 			});
 	}
 
-	function lookupAddress() {
-		var address = el("addr-input").value.trim();
-		if (!address) return;
-		notice("addr-error", "Looking up\u2026", "busy");
+	function rescanBlocks() {
+		var from = el("blocks-from").value.trim();
+		var to = el("blocks-to").value.trim();
+		if (!from) {
+			notice("blocks-note", "Enter the block to start from.");
+			return;
+		}
 
-		supportGet("/address/" + encodeURIComponent(address) + "/info")
-			.then(function (info) {
-				notice("addr-error", null);
-				el("addr-result").hidden = false;
-				text("addr-tracked", info.tracked ? "Yes" : "No — not tracked by this Dojo");
-				text("addr-balance", sats(info.balance));
-				text("addr-ntx", number(info.n_tx));
-				text("addr-utxo", info.utxo ? number(info.utxo.length) : null);
-				text("addr-xpub", info.xpub || "—");
-				text("addr-path", info.path || "—");
+		var button = el("blocks-run");
+		button.disabled = true;
+		notice("blocks-note", "Rescanning blocks. This can take a long while — leave the page open.", "busy");
+
+		trackerGet(
+			"/rescan?fromHeight=" + encodeURIComponent(from) +
+				(to ? "&toHeight=" + encodeURIComponent(to) : "")
+		)
+			.then(function (result) {
+				notice("blocks-note", result.status || "Rescan complete", "ok");
 			})
 			.catch(function (error) {
-				el("addr-result").hidden = true;
-				notice("addr-error", error.message);
+				notice("blocks-note", error.message);
+			})
+			.then(function () {
+				button.disabled = false;
 			});
 	}
 
 	function bindTools() {
-		el("xpub-lookup").addEventListener("click", lookupXpub);
-		el("xpub-rescan").addEventListener("click", rescanXpub);
-		el("addr-lookup").addEventListener("click", lookupAddress);
-
-		[["xpub-input", lookupXpub], ["addr-input", lookupAddress]].forEach(function (pair) {
-			el(pair[0]).addEventListener("keydown", function (event) {
-				if (event.key === "Enter") pair[1]();
-			});
+		el("lookup-btn").addEventListener("click", lookup);
+		el("lookup-input").addEventListener("keydown", function (event) {
+			if (event.key === "Enter") lookup();
 		});
+
+		// Carry the identifier across rather than making the user paste it
+		// twice, and open the section so the prefilled field is visible.
+		el("result-rescan").addEventListener("click", function () {
+			var box = el("maint");
+			box.open = true;
+			el("rescan-target").value = el("lookup-input").value.trim();
+			box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+			el("rescan-target").focus();
+		});
+
+		el("rescan-run").addEventListener("click", rescan);
+		el("blocks-run").addEventListener("click", rescanBlocks);
 	}
 
 	/* ------------------------------------------------------------------- init */
@@ -508,14 +603,23 @@
 	el("network-name").textContent =
 		conf.chain || (isTestnet ? "testnet" : "mainnet");
 	el("admin-key").value = conf.adminKey;
+
 	bindCopyAndReveal();
 	bindTools();
+
+	el("pair-toggle").addEventListener("click", function () {
+		openPair(el("pair-panel").hidden);
+	});
+	el("pair-toggle-2").addEventListener("click", function () {
+		openPair(true);
+	});
 
 	// conf.js is right whenever exports.sh happened to run after Tor had
 	// published, which is every start but the first. /onion corrects it when it
 	// was not.
 	setOnion(conf.dojoHiddenService);
 	renderPairing();
+	el("tor-alert").hidden = !!state.onion;
 
 	// Polled on its own timer rather than inside refresh(): refresh() only
 	// starts once login() resolves, and login() is precisely what fails while
@@ -546,10 +650,10 @@
 			setInterval(refresh, REFRESH_MS);
 		})
 		.catch(function (error) {
-			setPill("err", "Not reachable");
-			el("sync-note").textContent =
-				"Could not reach the Dojo API (" + error.message + "). It may still be " +
-				"starting up — check the app logs in Umbrel if this persists.";
+			unreachable(
+				"Could not reach the Dojo API (" + error.message + "). It may still " +
+					"be starting up — check the app logs in Umbrel if this persists."
+			);
 			console.error(error);
 		});
 })();
