@@ -235,9 +235,25 @@ process.stdout.write("\nConnect page\n");
 		assert(h.el("pair-toggle").disabled === false, "the Pair wallet button must not be disabled");
 	});
 
+	// /support/services reports configuration, not health, so this lamp is
+	// static markup and app.js must leave it alone.
 	check("Soroban is never reported as healthy", () => {
-		assert(h.el("svc-soroban").textContent === "", "app.js should not touch the Soroban row");
-		assert(!/Healthy/.test(html.split("svc-soroban")[1].slice(0, 120)), "index.html must not claim Soroban health");
+		const lamp = h.el("svc-soroban");
+		assert(lamp.className === "", "app.js should not reclassify the Soroban lamp");
+		assert(lamp.getAttribute("aria-label") === null, "app.js should not relabel the Soroban lamp");
+		assert(/id="svc-soroban"[^>]*aria-label="Enabled"/.test(html), "index.html should label it Enabled");
+		assert(/dot--idle[^>]*id="svc-soroban"/.test(html), "index.html should give it the neutral lamp");
+	});
+
+	// With the detail lines gone the lamp is the only visible signal, so its
+	// accessible name is the only thing a screen reader has to go on.
+	check("every lamp carries its state as an accessible name", () => {
+		["bitcoind", "indexer", "tracker", "tor"].forEach((id) => {
+			const lamp = h.el(`svc-${id}`);
+			assert(lamp.className.startsWith("dot"), `svc-${id} className is ${lamp.className}`);
+			assert(lamp.getAttribute("aria-label"), `svc-${id} has no aria-label`);
+		});
+		assert(h.el("svc-bitcoind").getAttribute("aria-label") === "Healthy", "expected Healthy");
 	});
 
 	check("the chain band reports real heights", () => {
@@ -252,6 +268,18 @@ process.stdout.write("\nConnect page\n");
 
 	check("the lookup result does not exist until a lookup happens", () => {
 		assert(h.el("lookup-result").hidden === true, "result should start hidden");
+	});
+}
+
+{
+	const h = makeHarness({ onion: null });
+	h.run();
+	await h.settle();
+
+	check("a service still starting gets the warning lamp, not the healthy one", () => {
+		const tor = h.el("svc-tor");
+		assert(tor.className === "dot dot--warn", `got ${tor.className}`);
+		assert(tor.getAttribute("aria-label") === "Starting", `got ${tor.getAttribute("aria-label")}`);
 	});
 }
 

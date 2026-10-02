@@ -3,11 +3,11 @@
  * Layout: one 1080px column. Chain state and the service list share a single
  * brand band; paired wallets, lookup and maintenance stack beneath it.
  *
- * Colour comes from the Sentinel mark -- indigo to crimson, artwork knocked
- * out in white. The rule that keeps it usable: the gradient appears only on
- * large brand surfaces (the app mark, the band, a primary button, a section
- * rule). Nothing semantic is ever rendered in it, because brand crimson and
- * something-is-wrong crimson must not be confusable at indicator size.
+ * Colour is Dojo's own: gunmetal into deep purple. It replaces an
+ * indigo-to-crimson sweep borrowed from the Sentinel mark -- Sentinel,
+ * Samourai and Ashigaru each have an identity and Dojo should not wear one of
+ * theirs. Being dark at both ends, it also removes the old conflict where
+ * brand crimson sat a shade away from the error red.
  */
 :root {
   --bg: #f4f4f8;
@@ -19,20 +19,21 @@
   --text-muted: #4d4d60;
   --text-faint: #6e6e82;
 
-  --brand-a: #4a4fb5;
-  --brand-b: #c4232f;
-  --brand: linear-gradient(118deg, var(--brand-a) 0%, #8c3a86 52%, var(--brand-b) 100%);
+  --brand-a: #262b33;            /* gunmetal */
+  --brand-b: #3b2a5c;            /* deep purple */
+  --brand: linear-gradient(118deg, var(--brand-a) 0%, #2f2a44 52%, var(--brand-b) 100%);
   --on-brand: #ffffff;
-  --on-brand-2: #e8dcf4;
+  --on-brand-2: #c9c3d8;
 
-  /* Lamps for the band only. The page-level ok/pending/err below are tuned
-     for white cards and go muddy over indigo and crimson. */
+  /* Lamps for the band only. The band is dark in both colour schemes, so
+     these stay constant; the page-level ok/pending/err below are tuned for
+     white cards and would disappear against it. */
   --lamp-ok: #5fe0a0;
   --lamp-warn: #ffd166;
   --lamp-err: #ff9c92;
   --lamp-idle: rgba(255, 255, 255, 0.45);
 
-  --accent: #4a4fb5;
+  --accent: #5b3a8e;
   --accent-contrast: #ffffff;
   --ok: #17724a;
   --ok-bg: #dcf0e6;
@@ -57,11 +58,13 @@
     --text: #f2f2f6;
     --text-muted: #b7b7c7;
     --text-faint: #9393a5;
-    --brand-a: #6a70d8;
-    --brand-b: #dc4653;
-    --brand: linear-gradient(118deg, var(--brand-a) 0%, #a9519f 52%, var(--brand-b) 100%);
-    --on-brand-2: #f0e6f8;
-    --accent: #9096ef;
+    /* Lifted at both ends so the band and the primary button separate from
+       the page rather than sinking into it. */
+    --brand-a: #2b313a;
+    --brand-b: #453366;
+    --brand: linear-gradient(118deg, var(--brand-a) 0%, #372f4e 52%, var(--brand-b) 100%);
+    --on-brand-2: #cfc8dd;
+    --accent: #b49ae0;
     --accent-contrast: #0c0c11;
     --ok: #63d694;
     --ok-bg: #11301f;
@@ -149,63 +152,49 @@ p { margin: 0 0 12px; }
 .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 
 /* The band ---------------------------------------------------------------- */
+/* One compact stack. It used to be a two-column grid with a 340px service
+   panel, which set the band's height and left the chain figure floating in an
+   empty field beside it. Nothing here is taller than its content. */
 .band {
   background: var(--brand); color: var(--on-brand);
   border-radius: var(--radius);
-  padding: 18px; margin-bottom: 14px;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 18px;
-  align-items: stretch;
+  padding: 20px; margin-bottom: 14px;
 }
-
-.band-main { display: flex; flex-direction: column; justify-content: center; padding: 6px 2px 6px 6px; min-width: 0; }
-.band-main .live { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--on-brand-2); }
-.band-main .lamp {
+.band .live { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--on-brand-2); }
+.band .lamp {
   width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
 }
-.band-main .headline {
+.band .headline {
   font-size: 1.85rem; font-weight: 700; letter-spacing: -0.038em; line-height: 1.06;
   margin-top: 7px; text-wrap: balance;
 }
-.band-main .counts {
+.band .counts {
   margin-top: 5px; font-size: 0.85rem; font-weight: 500;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums; color: var(--on-brand-2);
 }
-.band-main .prog { margin-top: 14px; max-width: 420px; }
-.band-main .bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.26); overflow: hidden; }
-.band-main .bar span { display: block; height: 100%; background: #fff; }
-.band-main .pct { margin-top: 7px; font-size: 0.81rem; color: var(--on-brand-2); font-variant-numeric: tabular-nums; }
+.band .prog { margin-top: 14px; max-width: 420px; }
+.band .bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.26); overflow: hidden; }
+.band .bar span { display: block; height: 100%; background: #fff; }
+.band .pct { margin-top: 7px; font-size: 0.81rem; color: var(--on-brand-2); font-variant-numeric: tabular-nums; }
 
-/* The dark inset is load-bearing: a green lamp straight onto crimson is
-   unreadable, whichever green you pick. */
-.band-svc {
-  background: rgba(11, 9, 22, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-sm);
-  padding: 13px 15px; min-width: 0;
+/* Services: one row, lamp and name. No heading, no detail, no state word --
+   the lamp carries it, and its aria-label carries the lamp. */
+.services {
+  list-style: none; margin: 16px 0 0; padding: 14px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  display: flex; flex-wrap: wrap; gap: 9px 22px;
+  font-size: 0.86rem; font-weight: 500;
 }
-.band-svc h3 {
-  margin: 0 0 7px;
-  font-size: 0.67rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.74);
+.services li { display: flex; align-items: center; gap: 8px; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--lamp-ok); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
 }
-.svc { padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.13); }
-.svc:last-child { border-bottom: 0; padding-bottom: 1px; }
-.svc .top { display: flex; align-items: baseline; gap: 9px; }
-.svc .nm { font-size: 0.86rem; font-weight: 600; color: #fff; }
-.svc .health {
-  margin-left: auto; font-size: 0.76rem; font-weight: 600; color: #fff;
-  white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
-}
-.svc .health::before {
-  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
-  background: var(--lamp-ok); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.13);
-}
-.svc .health--warn::before { background: var(--lamp-warn); }
-.svc .health--err::before { background: var(--lamp-err); }
-.svc .health--idle::before { background: var(--lamp-idle); box-shadow: none; }
-.svc .about { font-size: 0.75rem; color: rgba(255, 255, 255, 0.68); margin-top: 1px; }
+.dot--warn { background: var(--lamp-warn); }
+.dot--err { background: var(--lamp-err); }
+.dot--idle { background: var(--lamp-idle); box-shadow: none; }
 
 /* Alerts and notices ------------------------------------------------------ */
 .alert { border-radius: var(--radius-sm); padding: 13px 15px; font-size: 0.87rem; margin: 0 0 14px; }
@@ -228,7 +217,9 @@ p { margin: 0 0 12px; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .card-head h2 { margin: 0; }
 .card h2 { display: flex; align-items: center; gap: 9px; }
-.rule { width: 18px; height: 3px; border-radius: 2px; background: var(--brand); flex: none; }
+/* Accent, not the gradient: at 18x3 a gunmetal-to-purple sweep is
+   indistinguishable from black and reads as a stray em-dash. */
+.rule { width: 18px; height: 3px; border-radius: 2px; background: var(--accent); flex: none; }
 
 /* The pairing panel is the one card that announces itself, so it takes a
    gradient top edge rather than a plain border. */
@@ -258,11 +249,8 @@ p { margin: 0 0 12px; }
   border-style: dashed; cursor: pointer; gap: 7px;
   min-height: 126px; background: transparent;
 }
-.wcard--add .plus {
-  font-size: 1.45rem; line-height: 1;
-  background: var(--brand);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
+/* Likewise: gradient text this small disappears into a dark card. */
+.wcard--add .plus { font-size: 1.45rem; line-height: 1; color: var(--accent); }
 .wcard--add .lbl { font-weight: 600; font-size: 0.87rem; color: var(--accent); }
 
 .pill {
@@ -389,14 +377,11 @@ p { margin: 0 0 12px; }
 .app-footer a { color: inherit; }
 
 /* ------------------------------------------------------------------------- */
-@media (max-width: 860px) {
-  .band { grid-template-columns: minmax(0, 1fr); }
-}
 @media (max-width: 720px) {
   .resgrid .meta { margin-left: 0; padding-left: 0; border-left: 0; flex-basis: 100%; }
 }
 @media (max-width: 560px) {
-  .band-main .headline { font-size: 1.5rem; }
+  .band .headline { font-size: 1.5rem; }
   .resgrid .big { gap: 22px; }
   .qr { width: 100%; height: auto; aspect-ratio: 1; }
 }

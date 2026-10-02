@@ -32,44 +32,28 @@
       </button>
     </header>
 
-    <!-- Chain state and services, one brand surface --------------------->
+    <!-- Chain state and services --------------------------------------->
     <section class="band" aria-labelledby="band-heading">
       <h2 id="band-heading" class="visually-hidden">Status</h2>
-      <div class="band-main">
-        <div class="live"><span class="lamp"></span><span id="uptime-note">Checking&hellip;</span></div>
-        <div class="headline" id="chain-headline">&mdash;</div>
-        <div class="counts" id="chain-counts">Waiting for Dojo&hellip;</div>
-        <div class="prog" id="sync-meter" hidden>
-          <div class="bar"><span id="sync-fill"></span></div>
-          <div class="pct" id="sync-pct"></div>
-        </div>
+      <div class="live"><span class="lamp"></span><span id="uptime-note">Checking&hellip;</span></div>
+      <div class="headline" id="chain-headline">&mdash;</div>
+      <div class="counts" id="chain-counts">Waiting for Dojo&hellip;</div>
+      <div class="prog" id="sync-meter" hidden>
+        <div class="bar"><span id="sync-fill"></span></div>
+        <div class="pct" id="sync-pct"></div>
       </div>
-      <div class="band-svc">
-        <h3>Services</h3>
-        <div class="svc">
-          <div class="top"><span class="nm">Bitcoin node</span><span class="health" id="svc-bitcoind">&mdash;</span></div>
-          <div class="about" id="about-bitcoind">Your Bitcoin Node app</div>
-        </div>
-        <div class="svc">
-          <div class="top"><span class="nm">Electrum server</span><span class="health" id="svc-indexer">&mdash;</span></div>
-          <div class="about" id="about-indexer">&mdash;</div>
-        </div>
-        <div class="svc">
-          <div class="top"><span class="nm">Tracker</span><span class="health" id="svc-tracker">&mdash;</span></div>
-          <div class="about" id="about-tracker">&mdash;</div>
-        </div>
-        <div class="svc">
-          <div class="top"><span class="nm">Tor</span><span class="health" id="svc-tor">&mdash;</span></div>
-          <div class="about" id="about-tor">&mdash;</div>
-        </div>
-        <!-- Soroban reports configuration, never health: /support/services
-             only says whether an RPC is configured, so this row is deliberately
-             neutral and never claims "Healthy". -->
-        <div class="svc">
-          <div class="top"><span class="nm">Soroban</span><span class="health health--idle" id="svc-soroban">Enabled</span></div>
-          <div class="about">PandoTx relay, push only</div>
-        </div>
-      </div>
+      <!-- A lamp and a name, nothing else. The lamp is the only visible signal,
+           so each one carries its state as an aria-label -- otherwise a screen
+           reader meets five unlabelled dots. -->
+      <ul class="services">
+        <li><span class="dot" id="svc-bitcoind" role="img" aria-label="Checking"></span>Bitcoin node</li>
+        <li><span class="dot" id="svc-indexer" role="img" aria-label="Checking"></span>Electrum server</li>
+        <li><span class="dot" id="svc-tracker" role="img" aria-label="Checking"></span>Tracker</li>
+        <li><span class="dot" id="svc-tor" role="img" aria-label="Checking"></span>Tor</li>
+        <!-- Soroban reports configuration, never health: /support/services only
+             says whether an RPC is configured. Static, and app.js never touches it. -->
+        <li><span class="dot dot--idle" id="svc-soroban" role="img" aria-label="Enabled"></span>Soroban</li>
+      </ul>
     </section>
 
     <p class="alert alert--warn" id="tor-alert" hidden>

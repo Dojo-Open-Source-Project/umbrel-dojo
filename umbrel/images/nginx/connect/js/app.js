@@ -63,15 +63,6 @@
 		return typeof value === "number" && value >= 0 ? value.toLocaleString() : null;
 	}
 
-	/* Bitcoin Core reports its version as a single integer, 290000 = 29.0.0. */
-	function coreVersion(value) {
-		if (typeof value !== "number" || value <= 0) return null;
-		var major = Math.floor(value / 10000);
-		var minor = Math.floor(value / 100) % 100;
-		var patch = value % 100;
-		return major + "." + minor + (patch ? "." + patch : "");
-	}
-
 	function sats(value) {
 		if (typeof value !== "number") return null;
 		return (value / 1e8).toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " BTC";
@@ -79,12 +70,13 @@
 
 	/* ---------------------------------------------------------------- status */
 
-	// One service row: a word, a lamp, and a line of detail under it.
-	function svc(id, kind, label, about) {
+	/* A service is a lamp and nothing else. The state is not drawn anywhere,
+	 * so it goes on the lamp as its accessible name -- without that a screen
+	 * reader gets five dots and no way to tell them apart. */
+	function svc(id, kind, state) {
 		var node = el("svc-" + id);
-		node.className = "health" + (kind ? " health--" + kind : "");
-		node.textContent = label;
-		if (about !== undefined) text("about-" + id, about);
+		node.className = "dot" + (kind ? " dot--" + kind : "");
+		node.setAttribute("aria-label", state);
 	}
 
 	function renderStatus(accounts, pushtx) {
@@ -93,29 +85,18 @@
 		var indexedBlock = accounts ? accounts.blocks : null;
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;
 
-		if (bitcoind && bitcoind.up) {
-			// Built piecewise: either figure can be missing, and concatenating
-			// blindly yields "Core 12 peers" or "null peers".
-			var about = [];
-			var version = coreVersion(bitcoind.version);
-			var peers = number(bitcoind.conn);
-			if (version) about.push("Core " + version);
-			if (peers !== null) about.push(peers + " peers");
-			svc("bitcoind", "ok", "Healthy", about.join(" · ") || "Connected");
-		} else {
-			svc("bitcoind", "err", "Unavailable", "Not answering RPC");
-		}
+		svc("bitcoind", bitcoind && bitcoind.up ? "ok" : "err",
+			bitcoind && bitcoind.up ? "Healthy" : "Unavailable");
 
 		if (!accounts) {
-			svc("indexer", "idle", "Unknown", "Dojo is not answering");
+			svc("indexer", "idle", "Unknown");
 		} else if (indexer.maxHeight === null || indexer.maxHeight === undefined) {
-			svc("indexer", "warn", "Starting", "No chain tip yet");
+			svc("indexer", "warn", "Starting");
 		} else {
-			svc("indexer", "ok", "Healthy", "Chain tip " + number(indexer.maxHeight));
+			svc("indexer", "ok", "Healthy");
 		}
 
-		svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting",
-			state.onion ? "Hidden service published" : "Publishing hidden service");
+		svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting");
 
 		el("tor-alert").hidden = !!state.onion;
 
@@ -134,7 +115,7 @@
 			text("chain-headline", "Starting up");
 			text("chain-counts", "Waiting for Dojo to report a block height.");
 			meter.hidden = true;
-			svc("tracker", "warn", "Starting", "No block height yet");
+			svc("tracker", "warn", "Starting");
 			return;
 		}
 
@@ -142,7 +123,7 @@
 			text("chain-headline", "Block " + number(indexedBlock));
 			text("chain-counts", "Indexed by your Dojo.");
 			meter.hidden = true;
-			svc("tracker", "ok", "Healthy", "Indexed to " + number(indexedBlock));
+			svc("tracker", "ok", "Healthy");
 			return;
 		}
 
@@ -155,12 +136,12 @@
 			meter.hidden = false;
 			el("sync-fill").style.width = Math.max(2, pct) + "%";
 			text("sync-pct", number(behind) + " blocks to go");
-			svc("tracker", "warn", "Syncing", number(behind) + " blocks behind");
+			svc("tracker", "warn", "Syncing");
 		} else {
 			text("chain-headline", "At the chain tip");
 			text("chain-counts", number(nodeBlock) + " of " + number(nodeBlock) + " blocks");
 			meter.hidden = true;
-			svc("tracker", "ok", "Healthy", "At the chain tip");
+			svc("tracker", "ok", "Healthy");
 		}
 	}
 
@@ -170,7 +151,7 @@
 		text("chain-counts", detail);
 		el("sync-meter").hidden = true;
 		["bitcoind", "indexer", "tracker"].forEach(function (id) {
-			svc(id, "err", "Unavailable", "Dojo is not answering");
+			svc(id, "err", "Unavailable");
 		});
 	}
 
@@ -346,8 +327,7 @@
 			.then(function (value) {
 				if (setOnion(value)) {
 					renderPairing();
-					svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting",
-						state.onion ? "Hidden service published" : "Publishing hidden service");
+					svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting");
 					el("tor-alert").hidden = !!state.onion;
 				}
 			});
