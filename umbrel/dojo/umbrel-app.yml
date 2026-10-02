@@ -53,6 +53,15 @@ releaseNotes: >-
 
   Everything from the previous update is in this one, so if you have not seen
   the rebuilt page yet, this is where it arrives.
+
+
+  Also fixes the Bitcoin node indicator, which showed red on a node that was
+  working. The page was reading the node's figures from the wrong place in the
+  reply, so it never found them: the light went red and the chain line fell
+  back to "Indexed by your Dojo" instead of comparing your Dojo's height
+  against your node's. Nothing was wrong with the node, and nothing was wrong
+  with the indexing — only with the reading of it. This one predates the
+  redesign; it was simply easier to miss as one small dot among four.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

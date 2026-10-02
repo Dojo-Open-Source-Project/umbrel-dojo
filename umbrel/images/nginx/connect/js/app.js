@@ -80,7 +80,18 @@
 	}
 
 	function renderStatus(accounts, pushtx) {
-		var bitcoind = (pushtx && pushtx.bitcoind) || null;
+		/* The two status endpoints do not answer in the same shape. pushtx goes
+		 * through HttpServer.sendOkData, which wraps its payload as
+		 * {status, data}; accounts goes through sendRawData and returns the
+		 * object bare. Reading pushtx.bitcoind therefore found undefined, the
+		 * lamp went red and the node height was lost -- on a Dojo that was
+		 * working perfectly.
+		 *
+		 * Accept either, rather than reaching straight for .data: the two
+		 * endpoints already disagree, and tolerating both costs one expression.
+		 */
+		var figures = (pushtx && pushtx.data) || pushtx;
+		var bitcoind = (figures && figures.bitcoind) || null;
 		var indexer = (accounts && accounts.indexer) || {};
 		var indexedBlock = accounts ? accounts.blocks : null;
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;

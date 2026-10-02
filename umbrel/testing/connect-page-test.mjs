@@ -92,7 +92,7 @@ function makeElement(id) {
 	};
 }
 
-function makeHarness({ onion = null, pairing = true } = {}) {
+function makeHarness({ onion = null, pairing = true, barePushtx = false } = {}) {
 	const elements = new Map();
 	const calls = { login: 0, status: 0, onion: 0, other: [] };
 	let statusUnauthorizedOnce = false;
@@ -140,7 +140,16 @@ function makeHarness({ onion = null, pairing = true } = {}) {
 			return json({ authorizations: { access_token: `token-${calls.login}` } });
 		}
 		if (url.endsWith("/pushtx/status/")) {
-			return json({ bitcoind: { up: true, conn: 12, blocks: 92_417, version: 310_000 } });
+			// The real shape. pushtx answers through HttpServer.sendOkData, which
+			// wraps the payload in {status, data}; the accounts /status/ route uses
+			// sendRawData and does not. This fixture used to return the bare object,
+			// which no server ever sends -- so the suite passed while the live page
+			// showed a red Bitcoin node lamp for months.
+			return json(
+				barePushtx
+					? { bitcoind: { up: true, conn: 12, blocks: 92_417, version: 310_000 } }
+					: { status: "ok", data: { bitcoind: { up: true, conn: 12, blocks: 92_417, version: 310_000 } } }
+			);
 		}
 		if (url.endsWith("/status/")) {
 			calls.status += 1;
@@ -277,12 +286,44 @@ process.stdout.write("\nConnect page\n");
 		assert(h.el("uptime-note").textContent === "Running for 3 days", `got ${h.el("uptime-note").textContent}`);
 	});
 
+	// These two are the regression. Against the pre-fix app.js they fail: it
+	// reads pushtx.bitcoind, which is undefined once the payload is wrapped, so
+	// the lamp goes red and the band drops to its no-node-height branch.
+	check("the Bitcoin node lamp reads the wrapped pushtx payload", () => {
+		const lamp = h.el("svc-bitcoind");
+		assert(lamp.className === "dot dot--ok", `expected the healthy lamp, got "${lamp.className}"`);
+		assert(lamp.getAttribute("aria-label") === "Healthy", `got ${lamp.getAttribute("aria-label")}`);
+	});
+
+	check("the band compares indexed height against the node's", () => {
+		assert(
+			h.el("chain-counts").textContent === "92,417 of 92,417 blocks",
+			`got "${h.el("chain-counts").textContent}" -- "Indexed by your Dojo." means the node height was lost`
+		);
+	});
+
 	check("the network badge shows the real chain, not Dojo's collapsed name", () => {
 		assert(h.el("network-name").textContent === "testnet4", `got ${h.el("network-name").textContent}`);
 	});
 
 	check("the lookup result does not exist until a lookup happens", () => {
 		assert(h.el("lookup-result").hidden === true, "result should start hidden");
+	});
+}
+
+{
+	// The permissive read has to work both ways round, or it is just the old
+	// bug with the operands swapped.
+	const h = makeHarness({ onion: "abcdef123456.onion", barePushtx: true });
+	h.run();
+	await h.settle();
+
+	check("an unwrapped pushtx payload is still understood", () => {
+		assert(h.el("svc-bitcoind").className === "dot dot--ok", `got "${h.el("svc-bitcoind").className}"`);
+		assert(
+			h.el("chain-counts").textContent === "92,417 of 92,417 blocks",
+			`got "${h.el("chain-counts").textContent}"`
+		);
 	});
 }
 
