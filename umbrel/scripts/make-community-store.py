@@ -174,6 +174,14 @@ def main(out_dir):
     print(f"  store id : {STORE_ID}")
     print(f"  app id   : {APP_ID}")
 
+    # Three separate incidents have ended with a complete store written into a
+    # directory nothing tracks, followed by a "nothing to commit, working tree
+    # clean" in the real clone -- which reads like success. Say so here, where
+    # it is still cheap to notice. Not an error: generating into a scratch
+    # directory is a perfectly good thing to do, it just cannot be pushed.
+    if not (out / ".git").exists():
+        print(f"  note     : {out} is not a git checkout; nothing can be pushed from here")
+
 
 if __name__ == "__main__":
     # Outside the repository by default: the root is the vendored Dojo tree and
