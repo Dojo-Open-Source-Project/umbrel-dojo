@@ -256,6 +256,21 @@ process.stdout.write("\nConnect page\n");
 		assert(h.el("svc-bitcoind").getAttribute("aria-label") === "Healthy", "expected Healthy");
 	});
 
+	// The order was specified (Ashigaru, Sentinel, Samourai) and nothing else
+	// would notice if someone reshuffled them.
+	check("the wallet marks appear in order, each with a name", () => {
+		const marks = [...html.matchAll(/<img src="img\/wallet-([a-z]+)\.png" alt="([^"]+)"/g)];
+		assert(marks.length === 3, `expected 3 marks, found ${marks.length}`);
+		assert(
+			marks.map((m) => m[1]).join(",") === "ashigaru,sentinel,samourai",
+			`got ${marks.map((m) => m[1]).join(",")}`
+		);
+		assert(
+			marks.map((m) => m[2]).join(",") === "Ashigaru,Sentinel,Samourai",
+			`alt text was ${marks.map((m) => m[2]).join(",")}`
+		);
+	});
+
 	check("the chain band reports real heights", () => {
 		assert(h.el("chain-headline").textContent === "At the chain tip", `got ${h.el("chain-headline").textContent}`);
 		assert(h.el("chain-counts").textContent === "92,417 of 92,417 blocks", `got ${h.el("chain-counts").textContent}`);

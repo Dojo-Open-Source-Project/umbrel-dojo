@@ -35,12 +35,28 @@
     <!-- Chain state and services --------------------------------------->
     <section class="band" aria-labelledby="band-heading">
       <h2 id="band-heading" class="visually-hidden">Status</h2>
-      <div class="live"><span class="lamp"></span><span id="uptime-note">Checking&hellip;</span></div>
-      <div class="headline" id="chain-headline">&mdash;</div>
-      <div class="counts" id="chain-counts">Waiting for Dojo&hellip;</div>
-      <div class="prog" id="sync-meter" hidden>
-        <div class="bar"><span id="sync-fill"></span></div>
-        <div class="pct" id="sync-pct"></div>
+      <div class="band-top">
+        <div class="band-state">
+          <div class="live"><span class="lamp"></span><span id="uptime-note">Checking&hellip;</span></div>
+          <div class="headline" id="chain-headline">&mdash;</div>
+          <div class="counts" id="chain-counts">Waiting for Dojo&hellip;</div>
+          <div class="prog" id="sync-meter" hidden>
+            <div class="bar"><span id="sync-fill"></span></div>
+            <div class="pct" id="sync-pct"></div>
+          </div>
+        </div>
+        <!-- The three wallets that speak Dojo's protocol. "Works with" rather
+             than "supported by": these projects do not sponsor this app, they
+             connect to it. The alt text is what makes the row mean anything to
+             a screen reader. -->
+        <div class="supported">
+          <span class="label">Works with</span>
+          <ul>
+            <li><img src="img/wallet-ashigaru.png" alt="Ashigaru" width="28" height="28"></li>
+            <li><img src="img/wallet-sentinel.png" alt="Sentinel" width="28" height="28"></li>
+            <li><img src="img/wallet-samourai.png" alt="Samourai" width="28" height="28"></li>
+          </ul>
+        </div>
       </div>
       <!-- A lamp and a name, nothing else. The lamp is the only visible signal,
            so each one carries its state as an aria-label -- otherwise a screen
