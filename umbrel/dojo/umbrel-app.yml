@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.4"
+version: "1.29.3-patch.5"
 tagline: Your own private backend for Ashigaru and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,24 +37,22 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  The app's page is rebuilt around the two things people open it for: whether
-  Dojo is working, and pairing a wallet. The chain state and all five services
-  now sit together at the top, pairing has moved behind a button in the corner,
-  and the separate wallet and address lookups have become one box that shows a
-  result only once you have asked for something.
+  Fixes a broken page after the last update. If the app came back looking
+  unstyled, with bulleted lists where the status panel should be, and the
+  block height stuck on "Waiting for Dojo…", that is this bug. Your browser had
+  kept the previous version's stylesheet and script and paired them with the
+  new page, and the old script stops at the first thing it cannot find — which
+  is why the page sat there rather than merely looking wrong.
 
 
-  Dojo has its own colours now rather than borrowing Sentinel's, and the page
-  says which wallets it works with: Ashigaru, Sentinel and Samourai.
+  Nothing was wrong with your Dojo: it carried on indexing throughout, and a
+  hard refresh was enough to clear it. This update makes that impossible rather
+  than asking anyone to know about it, so the page now updates cleanly from
+  here on.
 
 
-  You can now rescan a range of blocks from the page itself. That previously
-  meant opening the Maintenance Tool.
-
-
-  Fixed: a long rescan no longer fails after a minute. The page returned an
-  error while Dojo carried on working in the background, which looked like
-  breakage and was not.
+  Everything from the previous update is in this one, so if you have not seen
+  the rebuilt page yet, this is where it arrives.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

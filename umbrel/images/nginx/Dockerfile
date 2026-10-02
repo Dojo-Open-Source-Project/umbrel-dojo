@@ -16,6 +16,31 @@ COPY conf.d/ /etc/nginx/available/
 # Connect UI
 COPY connect/ /var/www/connect/
 
+# Stamp a content hash into the asset URLs whose filenames never change.
+#
+# Without this, a browser holding style.css or app.js from a previous image
+# pairs them with a freshly fetched index.html -- and an old app.js against new
+# markup throws on the first element that no longer exists, aborting before the
+# page ever logs in. The result is not an ugly page but a dead one: no status,
+# no pairing. That shipped in 1.29.3-patch.4.
+#
+# A hash of the file's own contents means a changed file is a new URL, so the
+# browser cannot serve a stale one against new markup -- and because index.html
+# is revalidated on navigation, this also rescues anyone already holding a bad
+# cache. conf.js is deliberately absent: it is generated per container at
+# startup, so its hash is not knowable here, and Cache-Control in connect.conf
+# is what keeps it fresh.
+RUN set -eux; \
+    cd /var/www/connect; \
+    for asset in css/style.css js/app.js js/qrcode.min.js; do \
+        hash="$(md5sum "$asset" | cut -c1-10)"; \
+        sed -i "s|\"${asset}\"|\"${asset}?v=${hash}\"|g" index.html; \
+    done; \
+    # Fail the build rather than ship an unstamped page if the markup's
+    # reference shape ever changes and the substitutions silently no-op.
+    grep -q 'css/style.css?v=' index.html; \
+    grep -q 'js/app.js?v=' index.html
+
 # wait-for, from upstream Dojo (docker/my-dojo/nginx/wait-for)
 COPY --chmod=0555 wait-for /wait-for
 
