@@ -360,7 +360,10 @@
 	 * until bitcoind's mempool is fully loaded and the route answers 503, which
 	 * happens on every restart. A dash beats a stale or invented feerate.
 	 */
-	var FEE_TARGETS = [["0.5", "50"], ["0.9", "90"], ["0.99", "99"], ["0.999", "999"]];
+	/* Low / Medium / High at 10% / 50% / 99%, the levels nextblock.is itself
+	 * publishes -- the same algorithm Dojo runs, so the vocabulary matches what
+	 * people already know. The home-screen widget shows the same three. */
+	var FEE_TARGETS = [["0.1", "low"], ["0.5", "med"], ["0.99", "high"]];
 
 	function renderFees(fees) {
 		var known = false;

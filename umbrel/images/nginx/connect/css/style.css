@@ -307,61 +307,47 @@ p { margin: 0 0 12px; }
 .tabbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Next block fees --------------------------------------------------------- */
-/* Four tiles, sharing the wallet cards' surface so the page reads as one set
-   of materials rather than two. */
+/* Three raised boxes carrying the same gunmetal-to-purple sweep as the hero
+   band, so Home's two brand surfaces read as one material. The depth comes
+   from a cast shadow plus a lit top edge rather than a border -- an outline
+   would flatten them back into rectangles. */
+/* Stands in for the .card margin these boxes no longer inherit. */
+.fees-band { margin-bottom: 14px; }
 .fees {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 11px; margin: 0 0 4px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin: 0;
 }
-.fees .fee {
-  background: var(--sunk); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 14px 15px; min-width: 0;
+.fees-band .muted { margin: 10px 0 0; }
+.fee {
+  background: var(--brand); color: var(--on-brand);
+  border-radius: var(--radius); padding: 17px 14px; min-width: 0;
+  text-align: center;
+  box-shadow:
+    0 12px 24px -10px rgba(0, 0, 0, 0.5),
+    0 2px 6px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
-.fees dt { font-size: 0.76rem; color: var(--text-muted); }
+.fees dt { font-size: 0.78rem; color: var(--on-brand-2); }
+.fees dt b { color: var(--on-brand); font-weight: 700; }
 .fees dd {
-  margin: 6px 0 0; font-size: 1.44rem; font-weight: 700;
+  margin: 7px 0 0; font-size: 1.42rem; font-weight: 700;
   letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
 }
 /* The unit belongs with the figure but must not compete with it, the way the
    widget's subtext does not compete with its text. */
-.fees .unit { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); }
+.fees .unit { font-size: 0.76rem; font-weight: 500; color: var(--on-brand-2); }
 /* No figure, no unit: "— sat/vB" claims a reading that does not exist. The
-   note below the tiles says why instead. */
+   note below the boxes says why instead. */
 .fees--unknown .unit { display: none; }
 
-/* Cards size to their own content rather than stretching to the tallest in the
-   row, which left every short card mostly empty. */
-.wallets { align-items: start; }
-
-/* Wallets ----------------------------------------------------------------- */
-.wallets { display: grid; grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); gap: 11px; }
-.wcard {
-  background: var(--sunk); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 14px;
-  display: flex; flex-direction: column; min-width: 0;
-  color: inherit; font: inherit; text-align: left;
+/* Three across stays three across, including on a phone, where each box is
+   about 100px. The type steps down so "3 sat/vB" still fits on one line. */
+@media (max-width: 560px) {
+  .fee { padding: 13px 8px; }
+  .fees dt { font-size: 0.7rem; }
+  .fees dd { font-size: 1.12rem; }
+  .fees .unit { font-size: 0.66rem; }
 }
-.wcard .top { display: flex; align-items: flex-start; gap: 6px; }
-.wcard .nm { font-weight: 600; font-size: 1rem; letter-spacing: -0.015em; min-width: 0; word-break: break-word; }
-.wcard .sub { font-size: 0.79rem; color: var(--text-muted); margin-top: 8px; }
-.wcard .note { margin-top: 6px; }
-.wcard--add {
-  align-items: center; justify-content: center;
-  border-style: dashed; cursor: pointer; gap: 7px;
-  min-height: 126px; background: transparent;
-}
-/* Likewise: gradient text this small disappears into a dark card. */
-.wcard--add .plus { font-size: 1.45rem; line-height: 1; color: var(--accent); }
-.wcard--add .lbl { font-weight: 600; font-size: 0.87rem; color: var(--accent); }
-
-.pill {
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 4px 9px; border-radius: 999px;
-  display: inline-block; margin-top: 8px; align-self: flex-start;
-}
-.pill--ok { background: var(--ok-bg); color: var(--ok); }
-.pill--warn { background: var(--pending-bg); color: var(--pending); }
-.pill--off { background: var(--border); color: var(--text-faint); }
 
 /* Per-wallet keys --------------------------------------------------------- */
 /* display: contents puts each key row into the .wallets grid alongside the two

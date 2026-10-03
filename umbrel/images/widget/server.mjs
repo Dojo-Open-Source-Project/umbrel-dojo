@@ -38,13 +38,19 @@ const MIN_REFRESH_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 
 // The estimator keys its feerates by the probability that a transaction paying
-// that rate makes the NEXT block. 0.1 and 0.2 are omitted deliberately: a
-// feerate with a one-in-ten shot at the next block is not a fee anyone picks.
+// that rate makes the NEXT block. Low / Medium / High at 10% / 50% / 99% are
+// the levels nextblock.is itself publishes from this same algorithm, and the
+// app's own page shows the same three -- someone comparing the two should never
+// see different answers to the same question.
+//
+// The percentages are deliberately not in these labels. three-stats truncates
+// both of its lines, and three items across a widget leaves roughly a third of
+// its width each, so "Medium 50%" would silently clip. The page carries the
+// percentages, where there is room for them.
 const TARGETS = [
-	["0.5", "50% chance"],
-	["0.9", "90% chance"],
-	["0.99", "99% chance"],
-	["0.999", "99.9% chance"],
+	["0.1", "Low"],
+	["0.5", "Medium"],
+	["0.99", "High"],
 ];
 
 /** @type {string | null} */
@@ -121,14 +127,17 @@ async function fetchFees() {
 	return (body && body.data) || body;
 }
 
+/* three-stats has no `title`, and its renderer puts `subtext` above `text`
+ * (packages/ui/src/modules/widgets/three-stats-widget.tsx), so the level is the
+ * subtext and the figure carries its own unit. `icon` is optional there and
+ * omitting it renders nothing, so there is none. */
 function itemsFrom(fees) {
-	return TARGETS.map(([key, title]) => {
+	return TARGETS.map(([key, level]) => {
 		const rate = fees == null ? null : fees[key];
 		const known = typeof rate === "number" && Number.isFinite(rate);
 		return {
-			title,
-			text: known ? String(rate) : "—",
-			subtext: known ? "sat/vB" : "starting",
+			subtext: level,
+			text: known ? `${rate} sat/vB` : "—",
 		};
 	});
 }
@@ -163,7 +172,7 @@ const server = http.createServer((request, response) => {
 	items()
 		.then((list) => {
 			const body = JSON.stringify({
-				type: "four-stats",
+				type: "three-stats",
 				link: "",
 				/* Required, and not redundant with the manifest's own refresh.
 				 *

@@ -83,17 +83,28 @@
            @dojo-tools/next-block-estimator, the algorithm behind nextblock.is,
            against your own node. The same four rates the home-screen widget
            shows, so the two can never disagree. -->
-      <section class="card">
-        <h2><span class="rule" aria-hidden="true"></span>Next block fees</h2>
-        <!-- Four tiles and nothing else. The heading plus "50% chance / 4 sat/vB"
-             says what a paragraph was saying at more length. A <dl> because
-             these are term/value pairs -- dt and dd are only valid inside one,
-             which the first cut of this card got wrong. -->
+      <!-- No .card wrapper: with the heading gone there is nothing for it to
+           frame, and a bordered panel around three raised boxes is a box inside
+           a box. These sit on the page like the band above them. -->
+      <section class="fees-band">
+        <!-- No heading: "Low / 10% / 3 sat/vB" explains itself, and a card
+             title above three labelled boxes was saying it twice. Still a <dl>
+             -- these are term/value pairs, and dt/dd are only valid inside one.
+             Levels follow nextblock.is, which is where these estimates come
+             from, so the vocabulary matches what people already know. -->
         <dl class="fees" id="fees">
-          <div class="fee"><dt>50% chance</dt><dd><span id="fee-50">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div class="fee"><dt>90% chance</dt><dd><span id="fee-90">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div class="fee"><dt>99% chance</dt><dd><span id="fee-99">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div class="fee"><dt>99.9% chance</dt><dd><span id="fee-999">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
+          <div class="fee">
+            <dt><b>Low</b> 10%</dt>
+            <dd><span id="fee-low">&mdash;</span> <span class="unit">sat/vB</span></dd>
+          </div>
+          <div class="fee">
+            <dt><b>Medium</b> 50%</dt>
+            <dd><span id="fee-med">&mdash;</span> <span class="unit">sat/vB</span></dd>
+          </div>
+          <div class="fee">
+            <dt><b>High</b> 99%</dt>
+            <dd><span id="fee-high">&mdash;</span> <span class="unit">sat/vB</span></dd>
+          </div>
         </dl>
         <p class="muted small" id="fees-note"></p>
       </section>

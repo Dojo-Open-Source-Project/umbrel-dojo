@@ -112,7 +112,7 @@ environment:
 
 widgets:
   - id: "fees"
-    type: "four-stats"
+    type: "three-stats"
     # Dojo's estimator recomputes every 20 seconds (estimator/index.js sets
     # refresh: 20), so polling faster than this only repeats an answer.
     refresh: "30s"
@@ -121,22 +121,18 @@ widgets:
     # published to the host.
     endpoint: "widget:3000/widgets/fees"
     link: ""
+    # Shown in the widget picker, so it has to match what the endpoint really
+    # returns: three-stats puts subtext above text and has no title field.
     example:
-      type: "four-stats"
+      type: "three-stats"
       link: ""
       items:
-        - title: "50% chance"
-          text: "3"
-          subtext: "sat/vB"
-        - title: "90% chance"
-          text: "5"
-          subtext: "sat/vB"
-        - title: "99% chance"
-          text: "8"
-          subtext: "sat/vB"
-        - title: "99.9% chance"
-          text: "12"
-          subtext: "sat/vB"
+        - subtext: "Low"
+          text: "1 sat/vB"
+        - subtext: "Medium"
+          text: "3 sat/vB"
+        - subtext: "High"
+          text: "8 sat/vB"
 
 defaultUsername: ""
 defaultPassword: ""

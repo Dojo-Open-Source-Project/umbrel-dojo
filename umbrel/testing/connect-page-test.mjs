@@ -907,11 +907,11 @@ process.stdout.write("\nConnect page\n");
 	h.run();
 	await h.settle();
 
-	check("the fee card shows the same four rates as the widget", () => {
-		assert(h.el("fee-50").textContent === "3", `got ${h.el("fee-50").textContent}`);
-		assert(h.el("fee-90").textContent === "5", `got ${h.el("fee-90").textContent}`);
-		assert(h.el("fee-99").textContent === "8", `got ${h.el("fee-99").textContent}`);
-		assert(h.el("fee-999").textContent === "12", `got ${h.el("fee-999").textContent}`);
+	check("the fee boxes show the same three levels as the widget", () => {
+		// 0.1 / 0.5 / 0.99 from the fixture: Low, Medium, High.
+		assert(h.el("fee-low").textContent === "1", `got ${h.el("fee-low").textContent}`);
+		assert(h.el("fee-med").textContent === "3", `got ${h.el("fee-med").textContent}`);
+		assert(h.el("fee-high").textContent === "8", `got ${h.el("fee-high").textContent}`);
 		assert(h.el("fees-note").textContent === "", "no note is needed once there are figures");
 		assert(h.el("fees").className === "fees", `units should show; got ${h.el("fees").className}`);
 	});
@@ -925,7 +925,7 @@ process.stdout.write("\nConnect page\n");
 	check("a 503 from the estimator shows a dash, never a number", () => {
 		// Same rule as the widget: the route 503s until bitcoind's mempool loads,
 		// and a stale or invented feerate is worse than saying nothing.
-		["fee-50", "fee-90", "fee-99", "fee-999"].forEach((id) => {
+		["fee-low", "fee-med", "fee-high"].forEach((id) => {
 			assert(h.el(id).textContent === "—", `${id} got ${h.el(id).textContent}`);
 		});
 		assert(h.el("fees-note").textContent.indexOf("No estimate yet") === 0, `got ${h.el("fees-note").textContent}`);

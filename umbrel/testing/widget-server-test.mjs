@@ -53,7 +53,7 @@ function assert(condition, message) {
  * There is no try/catch, and `ms()` throws on anything that is not a non-empty
  * string or a finite number. So a response without a `refresh` field fails the
  * whole tRPC query, and because the UI passes `retry: false` and falls back to
- * `undefined` on `isError`, four-stats-widget.tsx renders four LOADING_DASH
+ * `undefined` on `isError`, the widget renders LOADING_DASH
  * cells -- a widget that displays nothing. That shipped in patch.7.
  *
  * It is reproduced here rather than asserted as "has a refresh key" because
@@ -208,9 +208,9 @@ await withStack({ fees: () => READY }, async ({ widget }) => {
 	const { status, text } = await widget.get("/widgets/fees");
 	const body = JSON.parse(text);
 
-	check("the widget answers 200 with the four-stats envelope", () => {
+	check("the widget answers 200 with the three-stats envelope", () => {
 		assert(status === 200, `got ${status}`);
-		assert(body.type === "four-stats", `got type ${body.type}`);
+		assert(body.type === "three-stats", `got type ${body.type}`);
 		assert(body.link === "", `got link ${JSON.stringify(body.link)}`);
 		assert(Array.isArray(body.items), "items must be a list");
 	});
@@ -222,29 +222,29 @@ await withStack({ fees: () => READY }, async ({ widget }) => {
 		assert(umbreldParseRefresh(body) === 30_000, `got ${JSON.stringify(body.refresh)}`);
 	});
 
-	check("it shows the four confidence levels in ascending order", () => {
-		assert(body.items.length === 4, `got ${body.items.length} items`);
-		const titles = body.items.map((item) => item.title);
-		assert(
-			titles.join(" | ") === "50% chance | 90% chance | 99% chance | 99.9% chance",
-			`got ${titles.join(" | ")}`
-		);
+	check("it shows Low, Medium and High in that order", () => {
+		assert(body.items.length === 3, `got ${body.items.length} items`);
+		// three-stats renders subtext above text, so the level is the subtext,
+		// and it has no title field at all.
+		const levels = body.items.map((item) => item.subtext);
+		assert(levels.join(" | ") === "Low | Medium | High", `got ${levels.join(" | ")}`);
+		assert(body.items.every((item) => item.title === undefined), "three-stats has no title");
 	});
 
-	check("each stat carries its feerate in sat/vB", () => {
+	check("each level carries its feerate with the unit", () => {
+		// No separate unit field in three-stats, so it rides with the figure.
 		const texts = body.items.map((item) => item.text);
-		assert(texts.join(",") === "3,5,8,12", `got ${texts.join(",")}`);
 		assert(
-			body.items.every((item) => item.subtext === "sat/vB"),
-			`got ${body.items.map((i) => i.subtext).join(",")}`
+			texts.join(" | ") === "1 sat/vB | 3 sat/vB | 8 sat/vB",
+			`got ${texts.join(" | ")}`
 		);
 	});
 
-	check("the 10% and 20% rates are not shown", () => {
-		// Dojo reports six probabilities; a feerate with a one-in-ten shot at
-		// the next block is not a fee anyone picks, so it must not appear.
-		assert(!text.includes("10% chance"), "10% chance leaked into the widget");
-		assert(!text.includes("20% chance"), "20% chance leaked into the widget");
+	check("the levels the page does not publish stay out of the widget", () => {
+		// Dojo reports six probabilities. Only three are published, and the two
+		// surfaces must not disagree about which.
+		assert(!text.includes("5 sat/vB"), "the 90% rate leaked into the widget");
+		assert(!text.includes("12 sat/vB"), "the 99.9% rate leaked into the widget");
 	});
 });
 
@@ -259,7 +259,7 @@ await withStack(
 			// /pushtx/status/ went red for a year because the page assumed which
 			// helper a route used. Tolerating both costs one expression.
 			assert(
-				body.items.map((item) => item.text).join(",") === "3,5,8,12",
+				body.items.map((item) => item.text).join(" | ") === "1 sat/vB | 3 sat/vB | 8 sat/vB",
 				`got ${body.items.map((item) => item.text).join(",")}`
 			);
 		});
@@ -279,8 +279,8 @@ await withStack({ fees: () => 503 }, async ({ widget }) => {
 			`got ${body.items.map((i) => i.text).join(",")}`
 		);
 		assert(
-			body.items.every((item) => item.subtext === "starting"),
-			`got ${body.items.map((i) => i.subtext).join(",")}`
+			body.items.map((item) => item.subtext).join(" | ") === "Low | Medium | High",
+			`the levels stay labelled; got ${body.items.map((i) => i.subtext).join(" | ")}`
 		);
 		assert(!/\d/.test(body.items.map((i) => i.text).join("")), "a digit got through");
 	});
@@ -318,7 +318,7 @@ await withStack(
 			assert(dojo.calls.login === 2, `expected 2 logins, got ${dojo.calls.login}`);
 			assert(dojo.calls.fees === 2, `expected 2 fee calls, got ${dojo.calls.fees}`);
 			assert(
-				body.items.map((item) => item.text).join(",") === "3,5,8,12",
+				body.items.map((item) => item.text).join(" | ") === "1 sat/vB | 3 sat/vB | 8 sat/vB",
 				`got ${body.items.map((item) => item.text).join(",")}`
 			);
 		});
