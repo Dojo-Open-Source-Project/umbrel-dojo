@@ -913,6 +913,7 @@ process.stdout.write("\nConnect page\n");
 		assert(h.el("fee-99").textContent === "8", `got ${h.el("fee-99").textContent}`);
 		assert(h.el("fee-999").textContent === "12", `got ${h.el("fee-999").textContent}`);
 		assert(h.el("fees-note").textContent === "", "no note is needed once there are figures");
+		assert(h.el("fees").className === "fees", `units should show; got ${h.el("fees").className}`);
 	});
 }
 
@@ -928,6 +929,8 @@ process.stdout.write("\nConnect page\n");
 			assert(h.el(id).textContent === "—", `${id} got ${h.el(id).textContent}`);
 		});
 		assert(h.el("fees-note").textContent.indexOf("No estimate yet") === 0, `got ${h.el("fees-note").textContent}`);
+		// "— sat/vB" would read as a unit for a number that is not there.
+		assert(h.el("fees").className.indexOf("fees--unknown") !== -1, `got ${h.el("fees").className}`);
 		// And the rest of the page must be unaffected.
 		assert(h.el("chain-headline").textContent !== "—", "the band should still render");
 	});

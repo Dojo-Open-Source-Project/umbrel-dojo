@@ -302,18 +302,27 @@ p { margin: 0 0 12px; }
 .tabbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Next block fees --------------------------------------------------------- */
+/* Four tiles, sharing the wallet cards' surface so the page reads as one set
+   of materials rather than two. */
 .fees {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  gap: 14px 22px; margin: 14px 0 12px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 11px; margin: 0 0 4px;
 }
-.fees dt { font-size: 0.78rem; color: var(--text-muted); }
+.fees .fee {
+  background: var(--sunk); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 15px; min-width: 0;
+}
+.fees dt { font-size: 0.76rem; color: var(--text-muted); }
 .fees dd {
-  margin: 3px 0 0; font-size: 1.24rem; font-weight: 700;
-  letter-spacing: -0.028em; font-variant-numeric: tabular-nums;
+  margin: 6px 0 0; font-size: 1.44rem; font-weight: 700;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
 }
 /* The unit belongs with the figure but must not compete with it, the way the
    widget's subtext does not compete with its text. */
-.fees .unit { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+.fees .unit { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); }
+/* No figure, no unit: "— sat/vB" claims a reading that does not exist. The
+   note below the tiles says why instead. */
+.fees--unknown .unit { display: none; }
 
 /* Cards size to their own content rather than stretching to the tallest in the
    row, which left every short card mostly empty. */

@@ -85,16 +85,16 @@
            shows, so the two can never disagree. -->
       <section class="card">
         <h2><span class="rule" aria-hidden="true"></span>Next block fees</h2>
-        <p class="muted small">
-          What it costs to be confirmed in the very next block, worked out from
-          your own node's view of the mempool.
-        </p>
-        <div class="fees" id="fees">
-          <div><dt>50% chance</dt><dd><span id="fee-50">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div><dt>90% chance</dt><dd><span id="fee-90">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div><dt>99% chance</dt><dd><span id="fee-99">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-          <div><dt>99.9% chance</dt><dd><span id="fee-999">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
-        </div>
+        <!-- Four tiles and nothing else. The heading plus "50% chance / 4 sat/vB"
+             says what a paragraph was saying at more length. A <dl> because
+             these are term/value pairs -- dt and dd are only valid inside one,
+             which the first cut of this card got wrong. -->
+        <dl class="fees" id="fees">
+          <div class="fee"><dt>50% chance</dt><dd><span id="fee-50">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
+          <div class="fee"><dt>90% chance</dt><dd><span id="fee-90">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
+          <div class="fee"><dt>99% chance</dt><dd><span id="fee-99">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
+          <div class="fee"><dt>99.9% chance</dt><dd><span id="fee-999">&mdash;</span> <span class="unit">sat/vB</span></dd></div>
+        </dl>
         <p class="muted small" id="fees-note"></p>
       </section>
 

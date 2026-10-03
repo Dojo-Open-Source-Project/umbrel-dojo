@@ -370,6 +370,9 @@
 			if (ok) known = true;
 			text("fee-" + pair[1], ok ? String(rate) : null);
 		});
+		// Hide the units along with the figures: "— sat/vB" reads as a unit for a
+		// number that is not there.
+		el("fees").className = "fees" + (known ? "" : " fees--unknown");
 		el("fees-note").textContent = known
 			? ""
 			: "No estimate yet. Dojo works these out from your node's mempool, which " +
