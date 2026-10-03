@@ -160,18 +160,44 @@ const server = http.createServer((request, response) => {
 		return;
 	}
 
-	items().then((list) => {
-		const body = JSON.stringify({
-			type: "four-stats",
-			link: "",
-			items: list,
+	items()
+		.then((list) => {
+			const body = JSON.stringify({
+				type: "four-stats",
+				link: "",
+				/* Required, and not redundant with the manifest's own refresh.
+				 *
+				 * umbreld/source/modules/widgets/routes.ts post-processes every
+				 * widget response with `widgetData.refresh = ms(widgetData.refresh)`,
+				 * outside any try/catch, and ms() throws on anything that is not a
+				 * non-empty string or a finite number. Omitting this rejects the
+				 * whole tRPC query, and the UI -- which passes retry: false and
+				 * falls back to undefined on isError -- then renders four
+				 * LOADING_DASH cells. That is a widget showing nothing, from a
+				 * fetch that succeeded. It shipped in patch.7.
+				 *
+				 * The manifest's refresh is only the placeholder the UI holds
+				 * until data arrives; this is the value that actually sets the
+				 * poll interval.
+				 */
+				refresh: "30s",
+				items: list,
+			});
+			response.writeHead(200, {
+				"Content-Type": "application/json",
+				"Cache-Control": "no-store",
+			});
+			response.end(body);
+		})
+		.catch((error) => {
+			// items() swallows its own failures, so this is unreachable today.
+			// Without it, a future one would leave the request hanging instead
+			// of failing -- and a hung widget fetch looks exactly like a slow
+			// one, which is the hardest kind of fault to find.
+			log(`failed to build the widget response: ${error.message}`);
+			response.writeHead(500, { "Content-Type": "text/plain" });
+			response.end("widget unavailable\n");
 		});
-		response.writeHead(200, {
-			"Content-Type": "application/json",
-			"Cache-Control": "no-store",
-		});
-		response.end(body);
-	});
 });
 
 server.listen(PORT, () => {

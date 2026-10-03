@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.7"
+version: "1.29.3-patch.8"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,32 +37,26 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Every wallet you pair from now on gets its own key. Lose a phone and you
-  revoke that one wallet; everything else keeps syncing. Until now Dojo handed
-  out a single shared key, so cutting off one wallet meant re-pairing all of
-  them — or living with it.
+  Fixes the fee widget, which showed four dashes instead of figures. It was
+  fetching your fee estimates correctly the whole time and then failing at the
+  last step, on a detail of how umbrelOS reads a widget's reply. Add it from
+  the widget picker on your home screen.
 
 
-  Pairing now asks what to call the wallet first, then shows a code made for
-  it. The Paired wallets card lists what you have given access to, and each one
-  can be revoked on its own or removed once you no longer want the record.
-  Revoking takes effect immediately. Keys can also be given a lifetime, ten
-  years by default.
+  Everything else in this release arrived in the previous one. Every wallet you
+  pair now gets its own key, so losing a phone means revoking that one wallet
+  while everything else keeps syncing. Pairing asks what to call the wallet
+  first, then shows a code made for it, and the Paired wallets card lists what
+  has access — each one revocable on its own, with the effect immediate. The
+  wallets you had already paired are untouched and share the key Umbrel derived
+  for this app, which is still listed and still cannot be revoked from here.
 
 
-  The wallets you have already paired are unaffected and keep working. They
-  share the key Umbrel derived for this app, which is still listed, still
-  works, and still cannot be revoked from here.
-
-
-  Dojo also has a home-screen widget now, showing what it costs to get into
-  the next block: four feerates, each the rate at which a transaction has a
-  50%, 90%, 99% or 99.9% chance of being confirmed in the very next block.
-  These are not generic fee bands — they come from the nextblock estimator,
-  the algorithm behind nextblock.is, which Dojo has been running against your
-  own node all along. The figures are worked out from your node's own view of
-  the mempool, so you are not asking anyone else what the fees are. Add it from
-  the widget picker on your Umbrel home screen.
+  The widget shows four feerates from the nextblock estimator — the algorithm
+  behind nextblock.is, which Dojo has been running against your own node all
+  along — each the rate at which a transaction has a 50%, 90%, 99% or 99.9%
+  chance of being confirmed in the very next block. On a quiet mempool all four
+  read the same low figure; that is the honest answer, not a fault.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

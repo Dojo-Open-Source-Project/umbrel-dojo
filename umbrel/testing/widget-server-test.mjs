@@ -41,6 +41,39 @@ function assert(condition, message) {
 	if (!condition) throw new Error(message);
 }
 
+/**
+ * What umbreld does to every widget response before the UI ever sees it.
+ *
+ * umbreld/source/modules/widgets/routes.ts, the `data` procedure:
+ *
+ *     widgetData = await ctx.apps.getApp(appId).getWidgetData(widgetName)
+ *     // Parse refresh time from human-readable string to milliseconds
+ *     widgetData.refresh = ms(widgetData.refresh)
+ *
+ * There is no try/catch, and `ms()` throws on anything that is not a non-empty
+ * string or a finite number. So a response without a `refresh` field fails the
+ * whole tRPC query, and because the UI passes `retry: false` and falls back to
+ * `undefined` on `isError`, four-stats-widget.tsx renders four LOADING_DASH
+ * cells -- a widget that displays nothing. That shipped in patch.7.
+ *
+ * It is reproduced here rather than asserted as "has a refresh key" because
+ * the lesson of that bug is that our fixtures modelled our own contract
+ * instead of our consumer's.
+ */
+function umbreldParseRefresh(body) {
+	const value = body.refresh;
+	if (typeof value === "string" && value.length > 0) {
+		const match = /^(-?\d*\.?\d+) *(ms|s|m|h|d|w|y)?$/i.exec(value);
+		if (!match) throw new Error(`ms() cannot parse refresh ${JSON.stringify(value)}`);
+		const scale = { ms: 1, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+		return Number(match[1]) * (scale[(match[2] || "ms").toLowerCase()] ?? 1);
+	}
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	throw new Error(
+		`ms() throws: refresh is not a non-empty string or a valid number. refresh=${JSON.stringify(value)}`
+	);
+}
+
 /* ------------------------------------------------------------- the stub Dojo */
 
 /**
@@ -138,6 +171,13 @@ async function startWidget(nodePort) {
 		get: async (path) => {
 			const response = await fetch(`http://127.0.0.1:${port}${path}`);
 			const text = await response.text();
+			// Every successful widget response goes through umbreld's refresh
+			// parse, so the harness does too -- including the not-ready and
+			// unreachable paths, which are exactly where a missing field would
+			// otherwise hide.
+			if (response.status === 200 && path === "/widgets/fees") {
+				umbreldParseRefresh(JSON.parse(text));
+			}
 			return { status: response.status, text };
 		},
 		stop: () => child.kill("SIGKILL"),
@@ -173,6 +213,13 @@ await withStack({ fees: () => READY }, async ({ widget }) => {
 		assert(body.type === "four-stats", `got type ${body.type}`);
 		assert(body.link === "", `got link ${JSON.stringify(body.link)}`);
 		assert(Array.isArray(body.items), "items must be a list");
+	});
+
+	check("the response carries the refresh umbreld insists on", () => {
+		// Not redundant with the manifest's refresh: the manifest value is only
+		// the placeholder the UI holds before data arrives, while this one is
+		// what umbreld feeds to ms() and what then drives the poll interval.
+		assert(umbreldParseRefresh(body) === 30_000, `got ${JSON.stringify(body.refresh)}`);
 	});
 
 	check("it shows the four confidence levels in ascending order", () => {
