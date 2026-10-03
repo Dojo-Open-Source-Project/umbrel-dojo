@@ -37,7 +37,18 @@ chown 1000:1000 "${EXPLORER_DIR}" 2>/dev/null || true
 if [[ -n "${APP_MEMPOOL_HIDDEN_SERVICE:-}" ]]; then
 	printf '%s\n' "${APP_MEMPOOL_HIDDEN_SERVICE}" > "${EXPLORER_DIR}/hostname"
 	chown 1000:1000 "${EXPLORER_DIR}/hostname" 2>/dev/null || true
+elif [[ -n "${APP_DOJO_PUBLIC_EXPLORER:-}" ]]; then
+	# No Mempool onion of their own yet: umbrelOS only creates one once Tor is
+	# switched on, and Dojo reads it at startup, so it takes that plus a
+	# restart. Point wallets at mempool.space's onion until then -- see the
+	# reasoning beside APP_DOJO_PUBLIC_EXPLORER in exports.sh. The Connect page
+	# compares against the same value and says which one is in force.
+	printf '%s\n' "${APP_DOJO_PUBLIC_EXPLORER}" > "${EXPLORER_DIR}/hostname"
+	chown 1000:1000 "${EXPLORER_DIR}/hostname" 2>/dev/null || true
 else
+	# Both empty. Keep "no explorer at all" reachable rather than making it
+	# unrepresentable: Dojo's read is wrapped in try/catch and an absent file
+	# is how it is told there is none.
 	rm -f "${EXPLORER_DIR}/hostname"
 fi
 

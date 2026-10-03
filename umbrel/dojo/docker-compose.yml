@@ -167,6 +167,9 @@ services:
       DOJO_VERSION_TAG: 1.29.3
       DOJO_API_PORT: ${APP_DOJO_API_PORT}
       DOJO_HIDDEN_SERVICE: ${APP_DOJO_HIDDEN_SERVICE}
+      # So the Connect page can tell the user's own Mempool from the public
+      # fallback by comparison, rather than carrying its own copy of the onion.
+      DOJO_PUBLIC_EXPLORER: ${APP_DOJO_PUBLIC_EXPLORER}
       DEVICE_DOMAIN_NAME: ${DEVICE_DOMAIN_NAME}
       NODE_ADMIN_KEY: ${APP_DOJO_NODE_ADMIN_KEY}
       NODE_PREFIX_SUPPORT: support

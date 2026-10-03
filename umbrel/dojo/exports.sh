@@ -35,6 +35,31 @@ esac
 # not dependable. Everything else talks over Docker DNS.
 export APP_DOJO_NGINX_IP="10.21.21.31"
 
+# The block explorer a paired wallet opens transactions in, when the user does
+# not yet have one of their own.
+#
+# Your own Mempool is the goal, but its onion only exists once Tor is switched
+# on in umbrelOS -- which is not the default -- and Dojo only reads the address
+# at startup, so it takes a restart as well. Until both have happened the
+# pairing payload would carry no explorer at all, and the wallet would fall
+# back to whatever it ships with, most likely over clearnet.
+#
+# mempool.space's own onion is the better of the two things we can offer in the
+# meantime: a third party still learns which transactions you look at, but not
+# from where. hooks/pre-start uses this only when the user has no Mempool onion
+# of their own, and the Connect page says which of the two is in force.
+#
+# The chain path is part of the value because keys.index.js builds the URL as
+# "http://" + the file's contents, so whatever is written here is what wallets
+# and the admin tool append /tx/<txid> to.
+dojo_public_explorer="mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion"
+case "${APP_DOJO_CHAIN}" in
+	testnet4) dojo_public_explorer="${dojo_public_explorer}/testnet4" ;;
+	signet)   dojo_public_explorer="${dojo_public_explorer}/signet" ;;
+	testnet)  dojo_public_explorer="${dojo_public_explorer}/testnet" ;;
+esac
+export APP_DOJO_PUBLIC_EXPLORER="${dojo_public_explorer}"
+
 # Host port for the Dojo API, so wallets on the same network can reach it
 # without going through Tor or Umbrel's app proxy.
 export APP_DOJO_API_PORT="3024"

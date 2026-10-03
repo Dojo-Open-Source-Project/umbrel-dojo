@@ -78,8 +78,13 @@
     </p>
 
     <!-- Pairing ---------------------------------------------------------->
-    <section class="panel" id="pair-panel" hidden>
-      <h2>Pair a wallet</h2>
+    <!-- A real <dialog>: the backdrop, Esc-to-close and the focus trap come
+         from the platform, so there is no hand-rolled modal to get wrong. -->
+    <dialog class="panel" id="pair-panel" aria-labelledby="pair-title">
+      <div class="panel-head">
+        <h2 id="pair-title">Pair a wallet</h2>
+        <button class="iconbtn" type="button" id="pair-close" aria-label="Close">&times;</button>
+      </div>
       <p class="muted" id="pairing-hint">
         This is your Dojo's Tor address. It works from anywhere, not just at
         home, and keeps the connection private. Your wallet needs Tor enabled.
@@ -95,8 +100,13 @@
           </div>
           <details class="details">
             <summary>Show pairing payload</summary>
+            <div class="code-head">
+              <span class="muted small">What the QR encodes</span>
+              <button class="btn btn--ghost btn--sm" data-copy="pairing-json">Copy</button>
+            </div>
             <pre id="pairing-json" class="code-block">&mdash;</pre>
           </details>
+          <p class="muted small" id="explorer-note"></p>
         </div>
       </div>
 
@@ -150,7 +160,7 @@
             server.</li>
         </ol>
       </details>
-    </section>
+    </dialog>
 
     <!-- Paired wallets --------------------------------------------------->
     <section class="card">

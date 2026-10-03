@@ -6,6 +6,7 @@ var conf = {
   chain: "$DOJO_CHAIN",
   dojoVersion: "$DOJO_VERSION_TAG",
   dojoHiddenService: "$DOJO_HIDDEN_SERVICE",
+  publicExplorer: "$DOJO_PUBLIC_EXPLORER",
   dojoApiPort: "$DOJO_API_PORT",
   deviceDomainName: "$DEVICE_DOMAIN_NAME",
   adminKey: "$NODE_ADMIN_KEY",

@@ -297,13 +297,57 @@
 
 		el("pairing-json").textContent = JSON.stringify(payload, null, 2);
 		renderQr("qr", JSON.stringify(payload));
+		renderExplorer(payload.explorer);
+	}
+
+	/* Which block explorer the paired wallet will open transactions in.
+	 *
+	 * Three cases, and the middle one is the common one. Your own Mempool needs
+	 * Tor switched on in umbrelOS -- not the default -- and Dojo reads the
+	 * address at startup, so it takes a restart too. Until both have happened
+	 * hooks/pre-start supplies mempool.space's onion instead, which is better
+	 * than the clearnet explorer a wallet would otherwise fall back to and
+	 * worse than your own. Saying which one is in force is the whole point:
+	 * otherwise the better option is invisible.
+	 *
+	 * Told apart by comparison against the same value hooks/pre-start used,
+	 * passed through conf.js, rather than a second copy of the onion here.
+	 */
+	function renderExplorer(explorer) {
+		var note = el("explorer-note");
+		var url = explorer && explorer.url;
+
+		if (!url) {
+			note.textContent =
+				"No block explorer is attached, so your wallet will use whichever one " +
+				"it ships with.";
+			return;
+		}
+
+		if (conf.publicExplorer && url.indexOf(conf.publicExplorer) !== -1) {
+			note.textContent =
+				"Transactions open in mempool.space over Tor. That is private from " +
+				"your network, but mempool.space still sees which transactions you " +
+				"look at. To use your own Mempool instead, turn on Tor in umbrelOS " +
+				"settings and restart Dojo.";
+			return;
+		}
+
+		note.textContent =
+			"Transactions open in your own Mempool, so nobody else sees which ones " +
+			"you look at.";
 	}
 
 	function openPair(on) {
 		var panel = el("pair-panel");
-		panel.hidden = !on;
 		el("pair-toggle").setAttribute("aria-expanded", String(on));
-		if (on) panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+		// showModal gives the backdrop, Esc and the focus trap for free. Guarded
+		// because calling it on an already-open dialog throws.
+		if (on) {
+			if (!panel.open) panel.showModal();
+		} else if (panel.open) {
+			panel.close();
+		}
 	}
 
 	/* ----------------------------------------------------------------- wiring */
@@ -312,7 +356,10 @@
 		document.querySelectorAll("[data-copy]").forEach(function (button) {
 			button.addEventListener("click", function () {
 				var input = el(button.getAttribute("data-copy"));
-				if (!input.value) return;
+				// The pairing payload lives in a <pre>, which has no .value.
+				var isField = "value" in input && input.tagName !== "PRE";
+				var value = isField ? input.value : input.textContent;
+				if (!value || value === "\u2014") return;
 				var restore = button.textContent;
 				var done = function () {
 					button.textContent = "Copied";
@@ -321,7 +368,11 @@
 					}, 1500);
 				};
 				if (navigator.clipboard && window.isSecureContext) {
-					navigator.clipboard.writeText(input.value).then(done);
+					navigator.clipboard.writeText(value).then(done);
+				} else if (!isField) {
+					// No clipboard API and nothing selectable: the user can still
+					// select the block by hand, so say nothing rather than lie.
+					return;
 				} else {
 					var wasHidden = input.type === "password";
 					input.type = "text";
@@ -618,10 +669,19 @@
 	bindTools();
 
 	el("pair-toggle").addEventListener("click", function () {
-		openPair(el("pair-panel").hidden);
+		// .open, not .hidden -- a dialog's visibility is not the hidden attribute.
+		openPair(!el("pair-panel").open);
 	});
 	el("pair-toggle-2").addEventListener("click", function () {
 		openPair(true);
+	});
+	el("pair-close").addEventListener("click", function () {
+		openPair(false);
+	});
+	// Esc and the backdrop close the dialog without going through openPair, so
+	// keep aria-expanded honest however it was dismissed.
+	el("pair-panel").addEventListener("close", function () {
+		el("pair-toggle").setAttribute("aria-expanded", "false");
 	});
 
 	// conf.js is right whenever exports.sh happened to run after Tor had

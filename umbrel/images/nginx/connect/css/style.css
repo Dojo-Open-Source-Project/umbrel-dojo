@@ -232,16 +232,35 @@ p { margin: 0 0 12px; }
    indistinguishable from black and reads as a stray em-dash. */
 .rule { width: 18px; height: 3px; border-radius: 2px; background: var(--accent); flex: none; }
 
-/* The pairing panel is the one card that announces itself, so it takes a
-   gradient top edge rather than a plain border. */
+/* The pairing panel is a <dialog>: the backdrop and dismissal are the
+   platform's, so this only has to size and skin it. It keeps the gradient top
+   edge it had as a card. */
 .panel {
   background: var(--surface); border: 1px solid var(--border);
   border-top: 3px solid transparent;
-  border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+  border-radius: var(--radius); padding: 20px;
   background-image: linear-gradient(var(--surface), var(--surface)), var(--brand);
   background-origin: border-box;
   background-clip: padding-box, border-box;
+  color: var(--text);
+  width: min(680px, calc(100vw - 2 * var(--gutter)));
+  max-height: min(86vh, 900px);
+  overflow: auto;
+  /* A dialog is centred by the UA, but only once it has no author margin. */
+  margin: auto;
 }
+.panel::backdrop { background: rgba(8, 8, 14, 0.62); }
+.panel-head { display: flex; align-items: flex-start; gap: 12px; }
+.panel-head h2 { flex: 1 1 auto; }
+.iconbtn {
+  flex: none; border: 1px solid transparent; background: transparent;
+  color: var(--text-muted); font: 400 1.4rem/1 inherit; cursor: pointer;
+  border-radius: 8px; padding: 2px 9px 5px;
+}
+.iconbtn:hover { border-color: var(--border-strong); color: var(--text); }
+
+.code-head { display: flex; align-items: center; gap: 10px; margin: 10px 0 7px; }
+.code-head .muted { flex: 1 1 auto; }
 
 /* Wallets ----------------------------------------------------------------- */
 .wallets { display: grid; grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); gap: 11px; }

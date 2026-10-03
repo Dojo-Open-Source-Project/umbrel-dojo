@@ -76,6 +76,11 @@ function makeElement(id) {
 		},
 		open: false,
 		disabled: false,
+		showModal() { this.open = true; },
+		close() {
+			this.open = false;
+			(this.listeners.close || []).forEach((fn) => fn({}));
+		},
 		style: {},
 		children: [],
 		listeners: {},
@@ -92,7 +97,8 @@ function makeElement(id) {
 	};
 }
 
-function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxDown = false } = {}) {
+function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxDown = false,
+	explorerUrl = "http://my-own-mempool.onion" } = {}) {
 	const elements = new Map();
 	const calls = { login: 0, status: 0, onion: 0, other: [] };
 	let statusUnauthorizedOnce = false;
@@ -165,7 +171,10 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 		}
 		if (url.endsWith("/pairing")) {
 			return pairing
-				? json({ pairing: { type: "dojo.api", version: "1.29.3", apikey: "k" }, explorer: { type: "explorer.mempool_space", url: "http://x.onion" } })
+				? json({
+						pairing: { type: "dojo.api", version: "1.29.3", apikey: "k" },
+						explorer: { type: "explorer.mempool_space", url: explorerUrl },
+					})
 				: json({ error: "nope" }, 500);
 		}
 		calls.other.push({ url, options });
@@ -187,6 +196,7 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 			dojoHiddenService: "notyetset.onion",
 			dojoApiPort: "3024",
 			deviceDomainName: "umbrel.local",
+			publicExplorer: "mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/testnet4",
 			adminKey: "admin-key",
 			supportPrefix: "support"
 		},
@@ -380,6 +390,64 @@ process.stdout.write("\nConnect page\n");
 	check("the onion arriving fills the pairing endpoint and hides the notice", () => {
 		assert(h.el("endpoint").value === "http://abcdef123456.onion/test/v2", `got ${h.el("endpoint").value}`);
 		assert(h.el("tor-alert").hidden === true, "tor-alert should be hidden once published");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("pairing is a dialog, closed until asked for", () => {
+		assert(h.el("pair-panel").open === false, "the dialog should start closed");
+		assert(/<dialog[^>]*id="pair-panel"/.test(html), "pair-panel should be a <dialog>");
+	});
+
+	check("either entrance opens it, and close shuts it", () => {
+		h.el("pair-toggle").click();
+		assert(h.el("pair-panel").open === true, "the header button should open it");
+		h.el("pair-close").click();
+		assert(h.el("pair-panel").open === false, "the close button should shut it");
+		assert(
+			h.el("pair-toggle").getAttribute("aria-expanded") === "false",
+			"aria-expanded should follow the dialog shut"
+		);
+		h.el("pair-toggle-2").click();
+		assert(h.el("pair-panel").open === true, "the tile should open it too");
+	});
+
+	// Everything the QR encodes, in text, for anyone pasting it into a wallet
+	// that asks for the payload rather than scanning.
+	check("the pairing payload is rendered and copyable", () => {
+		const payload = h.el("pairing-json").textContent;
+		assert(payload.includes('"apikey"'), `payload looks wrong: ${payload.slice(0, 60)}`);
+		assert(/data-copy="pairing-json"/.test(html), "the payload needs a copy control");
+	});
+
+	check("a Mempool of your own is named as such", () => {
+		assert(
+			/your own Mempool/.test(h.el("explorer-note").textContent),
+			`got "${h.el("explorer-note").textContent}"`
+		);
+	});
+}
+
+{
+	// The common case until the user turns Tor on: the payload carries
+	// mempool.space's onion, and the page has to say so rather than implying
+	// the explorer is private.
+	const h = makeHarness({
+		onion: "abcdef123456.onion",
+		explorerUrl: "http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/testnet4",
+	});
+	h.run();
+	await h.settle();
+
+	check("the public explorer is named, with the way to replace it", () => {
+		const note = h.el("explorer-note").textContent;
+		assert(/mempool\.space/.test(note), `got "${note}"`);
+		assert(/still sees/.test(note), "it should not imply the public explorer is private");
+		assert(/turn on Tor/i.test(note) && /restart Dojo/i.test(note), "it should say how to switch");
 	});
 }
 
