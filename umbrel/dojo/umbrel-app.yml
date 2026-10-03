@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.8"
+version: "1.29.3-patch.9"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,26 +37,26 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Fixes the fee widget, which showed four dashes instead of figures. It was
-  fetching your fee estimates correctly the whole time and then failing at the
-  last step, on a detail of how umbrelOS reads a widget's reply. Add it from
-  the widget picker on your home screen.
+  The app's page is now three tabs with a bar along the bottom, the way
+  umbrelOS's own apps work. Home is the glance: whether Dojo is working, what
+  the next block costs, and the wallets you have paired. Tools holds looking up
+  a wallet or address and the two rescans. Advanced holds the admin key and the
+  Maintenance Tool. Pair wallet stays in the corner on every tab.
 
 
-  Everything else in this release arrived in the previous one. Every wallet you
-  pair now gets its own key, so losing a phone means revoking that one wallet
-  while everything else keeps syncing. Pairing asks what to call the wallet
-  first, then shows a code made for it, and the Paired wallets card lists what
-  has access — each one revocable on its own, with the effect immediate. The
-  wallets you had already paired are untouched and share the key Umbrel derived
-  for this app, which is still listed and still cannot be revoked from here.
+  Home now shows next block fees on the page itself, the same four figures as
+  the home-screen widget: the rate at which a transaction has a 50%, 90%, 99%
+  or 99.9% chance of being confirmed in the very next block. They come from the
+  nextblock estimator running against your own node, so you are not asking
+  anyone else what the fees are.
 
 
-  The widget shows four feerates from the nextblock estimator — the algorithm
-  behind nextblock.is, which Dojo has been running against your own node all
-  along — each the rate at which a transaction has a 50%, 90%, 99% or 99.9%
-  chance of being confirmed in the very next block. On a quiet mempool all four
-  read the same low figure; that is the honest answer, not a fault.
+  You can also now choose how Dojo broadcasts, in umbrelOS under this app's
+  settings. By default your transactions are handed to a random node on the
+  Soroban network, so the node that announces yours is not your own. You can
+  turn that off, or turn on relaying other people's transactions as well —
+  which also publishes an inbound address for other nodes to reach. The
+  Advanced tab shows which of these are in force.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
@@ -69,6 +69,48 @@ support: https://github.com/Dojo-Open-Source-Project/samourai-dojo/issues
 port: 3023
 gallery: []
 path: ""
+
+# User-configurable settings, rendered by umbrelOS in this app's own settings.
+#
+# This is the only honest home for them: keys.index.js computes Dojo's PandoTx
+# configuration once at module load from these variables, and nothing in Dojo's
+# API can change it afterwards, so a control on the app's own page would do
+# nothing. umbrelOS stores the choice, injects it, and restarts the app -- which
+# is exactly what applying it requires.
+#
+# Both services are listed on purpose. umbrelOS injects an override only into
+# the services named, and the Connect page learns these values through nginx's
+# environment; naming only `node` would leave the page reporting a stale value
+# after a change.
+environment:
+  - name: NODE_PANDOTX_PUSH
+    services:
+      - node
+      - nginx
+    default: "on"
+    options:
+      - "on"
+      - "off"
+    note: Hand transactions you broadcast to a random node on the Soroban network, so the node that announces yours is not your own and cannot be linked to you. Turning this off means your own node announces them.
+  - name: NODE_PANDOTX_PROCESS
+    services:
+      - node
+      - nginx
+    default: "off"
+    options:
+      - "on"
+      - "off"
+    note: Relay other people's transactions as well as your own. This also requires SOROBAN_ANNOUNCE, since relaying means publishing an inbound Soroban address for other nodes to reach — it changes what this machine does on the network, so it is off by default.
+  - name: SOROBAN_ANNOUNCE
+    services:
+      - node
+      - soroban
+      - nginx
+    default: "off"
+    options:
+      - "on"
+      - "off"
+    note: Publish an inbound Soroban address so other nodes can reach this one. Needed only to relay other people's transactions; broadcasting your own works without it.
 
 widgets:
   - id: "fees"

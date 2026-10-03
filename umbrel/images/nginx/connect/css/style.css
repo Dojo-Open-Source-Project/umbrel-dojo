@@ -80,7 +80,10 @@
 
 body {
   margin: 0;
-  padding: 28px var(--gutter) 56px;
+  padding: 28px var(--gutter);
+  /* Clear the fixed tab bar: its own height, the safe-area inset on a
+     phone with a home indicator, and the breathing room the page had. */
+  padding-bottom: calc(64px + 42px + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   color: var(--text);
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
@@ -261,6 +264,60 @@ p { margin: 0 0 12px; }
 
 .code-head { display: flex; align-items: center; gap: 10px; margin: 10px 0 7px; }
 .code-head .muted { flex: 1 1 auto; }
+
+/* Tabs -------------------------------------------------------------------- */
+/* [hidden] alone is not enough: the panels are flex/grid containers, and a
+   display rule in a later block would otherwise win over the UA sheet. */
+.panel-tab[hidden] { display: none; }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(150%) blur(12px);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Fall back to an opaque bar where color-mix or backdrop-filter is missing;
+   a translucent bar with neither reads as unstyled. */
+@supports not (backdrop-filter: blur(1px)) {
+  .tabbar { background: var(--surface); }
+}
+.tabbar [role="tablist"] {
+  max-width: 1080px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+}
+.tabbar [role="tab"] {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  font: 600 0.74rem inherit; font-family: inherit;
+  color: var(--text-muted);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 11px 4px calc(11px + 0px);
+  min-height: 64px; justify-content: center;
+  border-top: 2px solid transparent; margin-top: -1px;
+}
+.tabbar [role="tab"] svg { width: 21px; height: 21px; }
+.tabbar [role="tab"][aria-selected="true"] {
+  color: var(--accent); border-top-color: var(--accent);
+}
+.tabbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Next block fees --------------------------------------------------------- */
+.fees {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 14px 22px; margin: 14px 0 12px;
+}
+.fees dt { font-size: 0.78rem; color: var(--text-muted); }
+.fees dd {
+  margin: 3px 0 0; font-size: 1.24rem; font-weight: 700;
+  letter-spacing: -0.028em; font-variant-numeric: tabular-nums;
+}
+/* The unit belongs with the figure but must not compete with it, the way the
+   widget's subtext does not compete with its text. */
+.fees .unit { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+
+/* Cards size to their own content rather than stretching to the tallest in the
+   row, which left every short card mostly empty. */
+.wallets { align-items: start; }
 
 /* Wallets ----------------------------------------------------------------- */
 .wallets { display: grid; grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); gap: 11px; }

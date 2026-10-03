@@ -116,7 +116,9 @@ const defaultKeys = () => [
 
 function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxDown = false,
 	explorerUrl = "http://my-own-mempool.onion",
-	keys = defaultKeys(), keysFail = false } = {}) {
+	keys = defaultKeys(), keysFail = false,
+	hash = "", feesFail = false,
+	pandoTxPush = "on", pandoTxProcess = "off", sorobanAnnounce = "off" } = {}) {
 	const elements = new Map();
 	const calls = { login: 0, status: 0, onion: 0, other: [], keys: [] };
 	let statusUnauthorizedOnce = false;
@@ -203,6 +205,12 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 		 * learn what it got. A fixture that handed the key back would test a
 		 * server that does not exist. */
 		const method = (options && options.method) || "GET";
+		if (url.endsWith("/fees/estimator")) {
+			// 503 is what Dojo really answers until bitcoind's mempool is fully
+			// loaded, which happens on every restart.
+			if (feesFail) return json({ status: "error", error: "FeeEstimator not available" }, 503);
+			return json({ 0.1: 1, 0.2: 1, 0.5: 3, 0.9: 5, 0.99: 8, 0.999: 12 });
+		}
 		if (url.endsWith("/apikeys")) {
 			calls.keys.push({ method, url });
 			if (keysFail) return json({ error: "no table" }, 500);
@@ -248,6 +256,9 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 	const context = {
 		conf: {
 			network: "testnet",
+			pandoTxPush: pandoTxPush,
+			pandoTxProcess: pandoTxProcess,
+			sorobanAnnounce: sorobanAnnounce,
 			chain: "testnet4",
 			dojoVersion: "1.29.3",
 			dojoHiddenService: "notyetset.onion",
@@ -259,6 +270,14 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 		},
 		document,
 		fetch: fetchStub,
+		// showTab reads the hash to pick a tab and rewrites it with replaceState,
+		// so both have to exist or the page throws before it renders.
+		location: { hash: hash },
+		history: {
+			replaceState(_state, _title, url) {
+				context.location.hash = String(url);
+			}
+		},
 		window: { isSecureContext: false },
 		navigator: {},
 		console: { error() {}, log() {} },
@@ -554,7 +573,9 @@ process.stdout.write("\nConnect page\n");
 	check("the result rescan button carries the identifier across", () => {
 		h.el("result-rescan").click();
 		assert(h.el("rescan-target").value === "tb1qexampleaddress", `got ${h.el("rescan-target").value}`);
-		assert(h.el("maint").open === true, "the maintenance section should open");
+		// The rescan lives on the Tools tab now, so the handoff has to land there
+		// rather than opening a <details> that no longer exists.
+		assert(h.el("panel-tools").hidden === false, "the Tools tab should be showing");
 	});
 }
 
@@ -814,6 +835,140 @@ process.stdout.write("\nConnect page\n");
 		// reason to lose status or pairing.
 		assert(h.el("chain-headline").textContent !== "—", "the band should still render");
 		assert(h.el("endpoint").value === "http://abcdef123456.onion/test/v2", `got ${h.el("endpoint").value}`);
+	});
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("Home is the tab on a cold load, and only Home", () => {
+		assert(h.el("panel-home").hidden === false, "Home should be showing");
+		assert(h.el("panel-tools").hidden === true, "Tools should be hidden");
+		assert(h.el("panel-advanced").hidden === true, "Advanced should be hidden");
+		assert(h.el("tab-home").getAttribute("aria-selected") === "true", "Home tab should be selected");
+	});
+
+	check("exactly one panel shows whichever tab is picked", () => {
+		["tools", "advanced", "home"].forEach((name) => {
+			h.el("tab-" + name).click();
+			const shown = ["home", "tools", "advanced"].filter((p) => h.el("panel-" + p).hidden === false);
+			assert(shown.length === 1 && shown[0] === name, `picking ${name} showed ${shown.join(",") || "nothing"}`);
+		});
+	});
+
+	check("only the selected tab is in the tab order", () => {
+		h.el("tab-tools").click();
+		assert(h.el("tab-tools").getAttribute("tabindex") === null, "selected tab should not be removed from the order");
+		assert(h.el("tab-home").getAttribute("tabindex") === "-1", "unselected tabs should leave the tab order");
+	});
+
+	check("the hash follows the tab, for a reload or a bookmark", () => {
+		h.el("tab-advanced").click();
+		assert(h.context.location.hash === "#advanced", `got ${h.context.location.hash}`);
+	});
+
+	check("Pair wallet still works from a tab that is not Home", () => {
+		h.el("tab-advanced").click();
+		h.el("pair-toggle").click();
+		// The dialog sits outside the panels precisely so this holds.
+		assert(h.el("pair-panel").open === true, "the pairing dialog should open from any tab");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", hash: "#tools" });
+	h.run();
+	await h.settle();
+
+	check("a hash from a reload or a link selects that tab", () => {
+		assert(h.el("panel-tools").hidden === false, "Tools should be showing");
+		assert(h.el("panel-home").hidden === true, "Home should be hidden");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", hash: "#nonsense" });
+	h.run();
+	await h.settle();
+
+	check("an unrecognised hash falls back to Home rather than showing nothing", () => {
+		assert(h.el("panel-home").hidden === false, "Home should be showing");
+	});
+}
+
+/* ------------------------------------------------------------- next block */
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("the fee card shows the same four rates as the widget", () => {
+		assert(h.el("fee-50").textContent === "3", `got ${h.el("fee-50").textContent}`);
+		assert(h.el("fee-90").textContent === "5", `got ${h.el("fee-90").textContent}`);
+		assert(h.el("fee-99").textContent === "8", `got ${h.el("fee-99").textContent}`);
+		assert(h.el("fee-999").textContent === "12", `got ${h.el("fee-999").textContent}`);
+		assert(h.el("fees-note").textContent === "", "no note is needed once there are figures");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", feesFail: true });
+	h.run();
+	await h.settle();
+
+	check("a 503 from the estimator shows a dash, never a number", () => {
+		// Same rule as the widget: the route 503s until bitcoind's mempool loads,
+		// and a stale or invented feerate is worse than saying nothing.
+		["fee-50", "fee-90", "fee-99", "fee-999"].forEach((id) => {
+			assert(h.el(id).textContent === "—", `${id} got ${h.el(id).textContent}`);
+		});
+		assert(h.el("fees-note").textContent.indexOf("No estimate yet") === 0, `got ${h.el("fees-note").textContent}`);
+		// And the rest of the page must be unaffected.
+		assert(h.el("chain-headline").textContent !== "—", "the band should still render");
+	});
+}
+
+/* ----------------------------------------------------------------- pandotx */
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("push on and relay off is reported as that", () => {
+		assert(h.el("pandotx-push-pill").textContent === "On", `got ${h.el("pandotx-push-pill").textContent}`);
+		assert(h.el("pandotx-relay-pill").textContent === "Off", `got ${h.el("pandotx-relay-pill").textContent}`);
+	});
+}
+
+{
+	// The trap: process on but announce off. keys.index.js:79-84 requires both,
+	// so relay is genuinely inactive and the page must not claim otherwise.
+	const h = makeHarness({
+		onion: "abcdef123456.onion", pandoTxProcess: "on", sorobanAnnounce: "off"
+	});
+	h.run();
+	await h.settle();
+
+	check("relay reads off when announce is off, whatever process says", () => {
+		assert(h.el("pandotx-relay-pill").textContent === "Off", `got ${h.el("pandotx-relay-pill").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({
+		onion: "abcdef123456.onion", pandoTxProcess: "on", sorobanAnnounce: "on"
+	});
+	h.run();
+	await h.settle();
+
+	check("relay reads on only when both are on", () => {
+		assert(h.el("pandotx-relay-pill").textContent === "On", `got ${h.el("pandotx-relay-pill").textContent}`);
 	});
 }
 

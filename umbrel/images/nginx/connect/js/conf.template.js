@@ -10,5 +10,10 @@ var conf = {
   dojoApiPort: "$DOJO_API_PORT",
   deviceDomainName: "$DEVICE_DOMAIN_NAME",
   adminKey: "$NODE_ADMIN_KEY",
-  supportPrefix: "$NODE_PREFIX_SUPPORT"
+  supportPrefix: "$NODE_PREFIX_SUPPORT",
+  // PandoTx, reported read-only on the Advanced tab. Dojo reads these at
+  // startup, so they cannot change while the app runs.
+  pandoTxPush: "$NODE_PANDOTX_PUSH",
+  pandoTxProcess: "$NODE_PANDOTX_PROCESS",
+  sorobanAnnounce: "$SOROBAN_ANNOUNCE"
 };

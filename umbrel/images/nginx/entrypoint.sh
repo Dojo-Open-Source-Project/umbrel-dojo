@@ -18,6 +18,13 @@ CONNECT_DIR=/var/www/connect
 : "${DEVICE_DOMAIN_NAME:=umbrel.local}"
 : "${NODE_ADMIN_KEY:=}"
 : "${NODE_PREFIX_SUPPORT:=support}"
+# PandoTx, for the read-only status on the Advanced tab. The same three
+# variables the node container gets, so the page reports what Dojo actually
+# computed rather than a second opinion. Defaults match keys.index.js, which
+# treats anything but "on" as off.
+: "${NODE_PANDOTX_PUSH:=off}"
+: "${NODE_PANDOTX_PROCESS:=off}"
+: "${SOROBAN_ANNOUNCE:=off}"
 : "${NODE_HOST:=node}"
 : "${NODE_WAIT_TIMEOUT:=720}"
 
@@ -52,7 +59,7 @@ export DOJO_HIDDEN_SERVICE
 
 # Only the variables listed here are substituted, so anything else that looks
 # like a shell variable in the template survives untouched.
-envsubst '$COMMON_BTC_NETWORK $DOJO_CHAIN $DOJO_VERSION_TAG $DOJO_API_PORT $DOJO_HIDDEN_SERVICE $DOJO_PUBLIC_EXPLORER $DEVICE_DOMAIN_NAME $NODE_ADMIN_KEY $NODE_PREFIX_SUPPORT' \
+envsubst '$COMMON_BTC_NETWORK $DOJO_CHAIN $DOJO_VERSION_TAG $DOJO_API_PORT $DOJO_HIDDEN_SERVICE $DOJO_PUBLIC_EXPLORER $DEVICE_DOMAIN_NAME $NODE_ADMIN_KEY $NODE_PREFIX_SUPPORT $NODE_PANDOTX_PUSH $NODE_PANDOTX_PROCESS $SOROBAN_ANNOUNCE' \
     < "$CONNECT_DIR/js/conf.template.js" \
     > "$CONNECT_DIR/js/conf.js"
 

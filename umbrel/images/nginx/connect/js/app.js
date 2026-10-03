@@ -353,6 +353,66 @@
 			"you look at.";
 	}
 
+	/* Next block fees, from the estimator Dojo already runs.
+	 *
+	 * The same four probabilities the home-screen widget shows, so the two
+	 * cannot disagree, and the same honest unknown: getEstimatorFees() throws
+	 * until bitcoind's mempool is fully loaded and the route answers 503, which
+	 * happens on every restart. A dash beats a stale or invented feerate.
+	 */
+	var FEE_TARGETS = [["0.5", "50"], ["0.9", "90"], ["0.99", "99"], ["0.999", "999"]];
+
+	function renderFees(fees) {
+		var known = false;
+		FEE_TARGETS.forEach(function (pair) {
+			var rate = fees ? fees[pair[0]] : null;
+			var ok = typeof rate === "number" && isFinite(rate);
+			if (ok) known = true;
+			text("fee-" + pair[1], ok ? String(rate) : null);
+		});
+		el("fees-note").textContent = known
+			? ""
+			: "No estimate yet. Dojo works these out from your node's mempool, which " +
+				"takes a minute or two after a restart.";
+	}
+
+	/* PandoTx, read-only and deliberately so.
+	 *
+	 * keys.index.js computes these once at module load from the container's
+	 * environment, and nothing in Dojo's API can change them, so a switch here
+	 * would be decoration. The real controls are the manifest's `environment:`
+	 * entries, which umbrelOS renders in this app's settings and applies by
+	 * restarting the app.
+	 *
+	 * The relay condition mirrors keys.index.js:79-84 rather than guessing:
+	 * pandoTxProcessActive needs SOROBAN_ANNOUNCE and NODE_PANDOTX_PROCESS both
+	 * on, because processing means announcing an inbound hidden service.
+	 */
+	function on(value) {
+		return String(value || "").toLowerCase() === "on";
+	}
+
+	function renderPandoTx() {
+		var push = on(conf.pandoTxPush);
+		var relay = on(conf.sorobanAnnounce) && on(conf.pandoTxProcess);
+
+		el("pandotx-push-pill").className = "pill pill--" + (push ? "ok" : "off");
+		el("pandotx-push-pill").textContent = push ? "On" : "Off";
+		el("pandotx-push-note").textContent = push
+			? "Transactions you broadcast are handed to a random node on the Soroban " +
+				"network, so the node that announces yours is not your own."
+			: "Transactions you broadcast are announced by your own node, which links " +
+				"them to your connection.";
+
+		el("pandotx-relay-pill").className = "pill pill--" + (relay ? "ok" : "off");
+		el("pandotx-relay-pill").textContent = relay ? "On" : "Off";
+		el("pandotx-relay-note").textContent = relay
+			? "This Dojo also relays other people's transactions, and publishes an " +
+				"inbound Soroban address to do it."
+			: "This Dojo does not relay other people's transactions. Turning it on " +
+				"also publishes an inbound Soroban address.";
+	}
+
 	function openPair(on) {
 		var panel = el("pair-panel");
 		el("pair-toggle").setAttribute("aria-expanded", String(on));
@@ -363,6 +423,55 @@
 		} else if (panel.open) {
 			panel.close();
 		}
+	}
+
+	/* ------------------------------------------------------------------ tabs */
+
+	/* Three panels behind a fixed bottom bar, matching umbrelOS's own apps.
+	 *
+	 * Driven by location.hash so a reload keeps the tab and a tab is linkable;
+	 * the header and footer sit outside the panels, which is what keeps Pair
+	 * wallet reachable from everywhere.
+	 */
+	var TABS = ["home", "tools", "advanced"];
+
+	function showTab(name, focusTab) {
+		if (TABS.indexOf(name) === -1) name = "home";
+
+		TABS.forEach(function (tab) {
+			var button = el("tab-" + tab);
+			var panel = el("panel-" + tab);
+			var selected = tab === name;
+			button.setAttribute("aria-selected", String(selected));
+			// Only the selected tab is in the tab order; the arrows move between
+			// them, which is what a tablist is supposed to do.
+			if (selected) button.removeAttribute("tabindex");
+			else button.setAttribute("tabindex", "-1");
+			panel.hidden = !selected;
+		});
+
+		if (focusTab) el("tab-" + name).focus();
+		if (location.hash !== "#" + name) {
+			// replaceState, not assignment: changing location.hash pushes a history
+			// entry, so Back would walk the tabs instead of leaving the app.
+			if (history.replaceState) history.replaceState(null, "", "#" + name);
+			else location.hash = name;
+		}
+	}
+
+	function bindTabs() {
+		TABS.forEach(function (tab, index) {
+			var button = el("tab-" + tab);
+			button.addEventListener("click", function () {
+				showTab(tab);
+			});
+			button.addEventListener("keydown", function (event) {
+				var step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+				if (!step) return;
+				event.preventDefault();
+				showTab(TABS[(index + step + TABS.length) % TABS.length], true);
+			});
+		});
 	}
 
 	/* ---------------------------------------------------------- wallet keys */
@@ -779,8 +888,12 @@
 	function refresh() {
 		return Promise.all([
 			authedGet("/status/").catch(function () { return null; }),
-			authedGet("/pushtx/status/").catch(function () { return null; })
+			authedGet("/pushtx/status/").catch(function () { return null; }),
+			// Its own catch: 503 until bitcoind's mempool loads is a normal state,
+			// not a reason to declare Dojo unreachable.
+			authedGet("/fees/estimator").catch(function () { return null; })
 		]).then(function (results) {
+			renderFees((results[2] && results[2].data) || results[2]);
 			if (!results[0] && !results[1]) {
 				unreachable("Neither Dojo service answered. It may still be starting.");
 				return;
@@ -966,13 +1079,15 @@
 			if (event.key === "Enter") lookup();
 		});
 
-		// Carry the identifier across rather than making the user paste it
-		// twice, and open the section so the prefilled field is visible.
+		// Carry the identifier across rather than making the user paste it twice.
+		// The rescan now lives further down the same tab, so this scrolls rather
+		// than switching -- but it is written through showTab anyway, because the
+		// result and the rescan being on one tab is a layout decision and this
+		// should not break if they are ever separated.
 		el("result-rescan").addEventListener("click", function () {
-			var box = el("maint");
-			box.open = true;
+			showTab("tools");
 			el("rescan-target").value = el("lookup-input").value.trim();
-			box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+			el("rescan-target").scrollIntoView({ block: "center", behavior: "smooth" });
 			el("rescan-target").focus();
 		});
 
@@ -992,6 +1107,11 @@
 
 	bindCopyAndReveal();
 	bindTools();
+	bindTabs();
+	// A hash from a bookmark or a reload wins; anything unrecognised falls to
+	// Home rather than showing no panel at all.
+	showTab((location.hash || "").replace(/^#/, ""));
+	renderPandoTx();
 
 	el("pair-toggle").addEventListener("click", function () {
 		// .open, not .hidden -- a dialog's visibility is not the hidden attribute.
