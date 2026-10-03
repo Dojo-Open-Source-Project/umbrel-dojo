@@ -96,8 +96,23 @@
 		var indexedBlock = accounts ? accounts.blocks : null;
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;
 
-		svc("bitcoind", bitcoind && bitcoind.up ? "ok" : "err",
-			bitcoind && bitcoind.up ? "Healthy" : "Unavailable");
+		/* Three outcomes, not two. A null payload means the pushtx call itself
+		 * did not come back -- which is routine rather than alarming: pushtx
+		 * waits for Soroban's RPC before it opens port 8081, and Soroban
+		 * bootstraps its own Tor first, so nginx answers 502 for the first
+		 * half-minute of every start.
+		 *
+		 * Reporting that as a red "Unavailable" asserts the Bitcoin node is
+		 * down, which this page cannot see from here and which is usually
+		 * false. "Unknown" is what we actually know. The red is kept for the
+		 * case that genuinely earns it: pushtx answered and said up: false.
+		 */
+
+		svc(
+			"bitcoind",
+			bitcoind ? (bitcoind.up ? "ok" : "err") : "warn",
+			bitcoind ? (bitcoind.up ? "Healthy" : "Unavailable") : "Unknown"
+		);
 
 		if (!accounts) {
 			svc("indexer", "idle", "Unknown");
@@ -161,8 +176,12 @@
 		text("chain-headline", "Not reachable");
 		text("chain-counts", detail);
 		el("sync-meter").hidden = true;
+		// Same reasoning as the bitcoind lamp above: if Dojo's API is not
+		// answering, the state of the things behind it is unknown, not known to
+		// be bad. The headline already says "Not reachable" in words, which is
+		// where the alarm belongs.
 		["bitcoind", "indexer", "tracker"].forEach(function (id) {
-			svc(id, "err", "Unavailable");
+			svc(id, "warn", "Unknown");
 		});
 	}
 

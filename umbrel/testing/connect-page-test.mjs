@@ -92,7 +92,7 @@ function makeElement(id) {
 	};
 }
 
-function makeHarness({ onion = null, pairing = true, barePushtx = false } = {}) {
+function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxDown = false } = {}) {
 	const elements = new Map();
 	const calls = { login: 0, status: 0, onion: 0, other: [] };
 	let statusUnauthorizedOnce = false;
@@ -140,6 +140,10 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false } = {}) 
 			return json({ authorizations: { access_token: `token-${calls.login}` } });
 		}
 		if (url.endsWith("/pushtx/status/")) {
+			// What nginx returns when pushtx is not listening on 8081. That happens
+			// on every start: pushtx waits for Soroban's RPC before opening its
+			// port, and Soroban bootstraps its own Tor first.
+			if (pushtxDown) return json({ error: "Bad Gateway" }, 502);
 			// The real shape. pushtx answers through HttpServer.sendOkData, which
 			// wraps the payload in {status, data}; the accounts /status/ route uses
 			// sendRawData and does not. This fixture used to return the bare object,
@@ -308,6 +312,29 @@ process.stdout.write("\nConnect page\n");
 
 	check("the lookup result does not exist until a lookup happens", () => {
 		assert(h.el("lookup-result").hidden === true, "result should start hidden");
+	});
+}
+
+{
+	// "pushtx did not answer" and "the Bitcoin node is down" are different
+	// facts, and the page can only distinguish them by saying so. Reporting the
+	// first as a red Unavailable claims knowledge the page does not have.
+	const h = makeHarness({ onion: "abcdef123456.onion", pushtxDown: true });
+	h.run();
+	await h.settle();
+
+	check("an unreachable pushtx reads Unknown, not Unavailable", () => {
+		const lamp = h.el("svc-bitcoind");
+		assert(lamp.className === "dot dot--warn", `expected the warning lamp, got "${lamp.className}"`);
+		assert(
+			lamp.getAttribute("aria-label") === "Unknown",
+			`got ${lamp.getAttribute("aria-label")} -- "Unavailable" asserts the node is down, which we cannot see`
+		);
+	});
+
+	check("and the band claims no node height it does not have", () => {
+		assert(h.el("chain-counts").textContent === "Indexed by your Dojo.", `got "${h.el("chain-counts").textContent}"`);
+		assert(h.el("chain-headline").textContent === "Block 92,416", `got "${h.el("chain-headline").textContent}"`);
 	});
 }
 

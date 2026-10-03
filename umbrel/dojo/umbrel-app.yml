@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.5"
+version: "1.29.3-patch.6"
 tagline: Your own private backend for Ashigaru and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,31 +37,19 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Fixes a broken page after the last update. If the app came back looking
-  unstyled, with bulleted lists where the status panel should be, and the
-  block height stuck on "Waiting for Dojo…", that is this bug. Your browser had
-  kept the previous version's stylesheet and script and paired them with the
-  new page, and the old script stops at the first thing it cannot find — which
-  is why the page sat there rather than merely looking wrong.
+  Stops the Bitcoin node indicator going red while the app is still starting
+  up. Dojo's transaction-broadcast service waits for the Soroban relay before it
+  begins answering, and Soroban builds its own Tor connection first — so for
+  roughly the first half minute after a start, the page simply cannot see your
+  node. It was calling that "unavailable", which reads as a fault when nothing
+  is wrong.
 
 
-  Nothing was wrong with your Dojo: it carried on indexing throughout, and a
-  hard refresh was enough to clear it. This update makes that impossible rather
-  than asking anyone to know about it, so the page now updates cleanly from
-  here on.
-
-
-  Everything from the previous update is in this one, so if you have not seen
-  the rebuilt page yet, this is where it arrives.
-
-
-  Also fixes the Bitcoin node indicator, which showed red on a node that was
-  working. The page was reading the node's figures from the wrong place in the
-  reply, so it never found them: the light went red and the chain line fell
-  back to "Indexed by your Dojo" instead of comparing your Dojo's height
-  against your node's. Nothing was wrong with the node, and nothing was wrong
-  with the indexing — only with the reading of it. This one predates the
-  redesign; it was simply easier to miss as one small dot among four.
+  It now says "unknown" and shows amber for that, and keeps red for the case
+  that earns it: the service answering and telling us your node really is
+  unreachable. Same wherever the page cannot reach Dojo at all — the headline
+  says so in words rather than three red lights implying three separate
+  failures.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
