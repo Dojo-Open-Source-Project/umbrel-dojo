@@ -54,6 +54,18 @@ ICON_URL = (
     f"https://raw.githubusercontent.com/{STORE_REPO_SLUG}/HEAD/{APP_ID}/icon.svg"
 )
 
+# Gallery works the same way. The official store takes bare filenames and
+# resolves them against Umbrel's own asset repo; a community store has no such
+# repo, so umbreld takes whatever string is given and treats it as a URL -- the
+# upstream sparkles-hello-world example uses imgur links. Hence absolute URLs
+# into this store, pointing at images the generator copies in below.
+GALLERY = ("1.jpg", "2.jpg", "3.jpg", "4.jpg")
+GALLERY_SOURCE = "umbrel/assets/gallery"
+GALLERY_URLS = [
+    f"https://raw.githubusercontent.com/{STORE_REPO_SLUG}/HEAD/{APP_ID}/{name}"
+    for name in GALLERY
+]
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 PACKAGE = REPO_ROOT / "umbrel" / "dojo"
 
@@ -103,6 +115,12 @@ def transform_manifest(text):
     # Icon goes right after the name, where community manifests carry it.
     text = replace_once(
         text, "name: Dojo\n", f"name: Dojo\nicon: {ICON_URL}\n", "manifest icon"
+    )
+    # The official package ships `gallery: []` because Umbrel's team produces
+    # those images. A community store has to supply its own.
+    gallery = "\n".join(f"  - {url}" for url in GALLERY_URLS)
+    text = replace_once(
+        text, "gallery: []\n", f"gallery:\n{gallery}\n", "manifest gallery"
     )
     # `submission` points at a pull request in the official store; here the
     # store repo itself is the honest answer.
@@ -165,6 +183,12 @@ def main(out_dir):
     (app_out / "icon.svg").write_text(
         make_icon(REPO_ROOT / "umbrel/images/nginx/connect/img/dojo.svg")
     )
+
+    for name in GALLERY:
+        source = REPO_ROOT / GALLERY_SOURCE / name
+        if not source.exists():
+            raise SystemExit(f"gallery: missing {source}")
+        shutil.copyfile(source, app_out / name)
 
     # PR-BODY belongs to the official submission, not to the store.
     for stray in ("PR-BODY.md",):
