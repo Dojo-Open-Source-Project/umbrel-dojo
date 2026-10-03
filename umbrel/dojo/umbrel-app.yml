@@ -37,20 +37,32 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Dojo now has a home-screen widget showing what it costs to get into the next
-  block: four feerates, each the rate at which a transaction has a 50%, 90%,
-  99% or 99.9% chance of being confirmed in the very next block.
+  Every wallet you pair from now on gets its own key. Lose a phone and you
+  revoke that one wallet; everything else keeps syncing. Until now Dojo handed
+  out a single shared key, so cutting off one wallet meant re-pairing all of
+  them — or living with it.
 
 
-  These are not generic fee bands. They come from the nextblock estimator —
-  the algorithm behind nextblock.is — which Dojo has been running against your
+  Pairing now asks what to call the wallet first, then shows a code made for
+  it. The Paired wallets card lists what you have given access to, and each one
+  can be revoked on its own or removed once you no longer want the record.
+  Revoking takes effect immediately. Keys can also be given a lifetime, ten
+  years by default.
+
+
+  The wallets you have already paired are unaffected and keep working. They
+  share the key Umbrel derived for this app, which is still listed, still
+  works, and still cannot be revoked from here.
+
+
+  Dojo also has a home-screen widget now, showing what it costs to get into
+  the next block: four feerates, each the rate at which a transaction has a
+  50%, 90%, 99% or 99.9% chance of being confirmed in the very next block.
+  These are not generic fee bands — they come from the nextblock estimator,
+  the algorithm behind nextblock.is, which Dojo has been running against your
   own node all along. The figures are worked out from your node's own view of
-  the mempool, so you are not asking anyone else what the fees are.
-
-
-  Add it from the widget picker on your Umbrel home screen. While Dojo is
-  starting, or before your node has finished loading its mempool, the widget
-  says so rather than showing a stale or invented number.
+  the mempool, so you are not asking anyone else what the fees are. Add it from
+  the widget picker on your Umbrel home screen.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

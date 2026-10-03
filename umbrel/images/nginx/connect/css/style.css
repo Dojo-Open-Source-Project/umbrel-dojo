@@ -292,6 +292,31 @@ p { margin: 0 0 12px; }
 .pill--warn { background: var(--pending-bg); color: var(--pending); }
 .pill--off { background: var(--border); color: var(--text-faint); }
 
+/* Per-wallet keys --------------------------------------------------------- */
+/* display: contents puts each key row into the .wallets grid alongside the two
+   cards that bracket it, rather than giving the whole list one cell. */
+.wallets-rows { display: contents; }
+
+.wcard .meta { font-size: 0.75rem; color: var(--text-faint); margin-top: 7px; }
+.wcard-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.wcard-acts .btn { padding: 5px 10px; font-size: 0.76rem; }
+.wcard .confirm { font-size: 0.78rem; color: var(--text-muted); margin-top: 10px; }
+.btn--danger { background: transparent; color: var(--err); border-color: var(--err); }
+
+/* Three controls on one row: on a phone they stack rather than squeeze the
+   name field down to nothing. */
+#pair-new .copy-row { flex-wrap: wrap; }
+#pair-new .copy-row input { flex: 1 1 160px; }
+/* A wallet name is a name, not a key. The monospace rule that makes a hex
+   endpoint readable makes a label look like a serial number. */
+#pair-name { font-family: inherit; font-size: 0.87rem; font-weight: 500; }
+.copy-row select {
+  font: 500 0.84rem inherit; font-family: inherit;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+}
+
 /* Pairing ----------------------------------------------------------------- */
 .pairing { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
 .qr {

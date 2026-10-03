@@ -43,6 +43,18 @@ something has been looked up.
 The element stub only answers for ids that appear in `connect/index.html` and
 throws for anything else, so markup and script cannot drift apart silently.
 
+The per-wallet API key tests are the ones worth reading if you change that
+code. The fixture mutates its own key rows rather than handing back a canned
+answer, because the behaviour under test is a round trip: Dojo's
+`POST /support/apikey` replies `{"status":"ok"}` and never returns the key it
+just minted, so the page has to re-read the list and find the new row by
+`apikeyID` — `label` is not unique in the table. A fixture that returned the
+key would be testing a server that does not exist. Two assertions carry the
+feature and both were checked by breaking the code first: that the chosen key
+is substituted into the pairing payload (without it, revoking a wallet does
+nothing), and that a revoke sends label and expiresAt back alongside
+`active: false`, which is what `updateApiKey` validates.
+
 ## Widget server tests
 
 ```sh

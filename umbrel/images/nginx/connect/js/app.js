@@ -29,7 +29,15 @@
 	 */
 	var EXT_KEY = /^(x|y|z|v|t|u)pub/i;
 
-	var state = { onion: null, endpoint: null, pairing: null, token: null };
+	/* keys  -- the api_keys table, as Dojo reports it
+	 * showing -- which key the open pairing code belongs to; null means the
+	 *            key Umbrel derived into the container environment, which is
+	 *            not in that table and cannot be revoked.
+	 */
+	var state = {
+		onion: null, endpoint: null, pairing: null, token: null,
+		keys: [], showing: null
+	};
 
 	// Static: no onion needed, so this is available immediately and stays valid.
 	var lanEndpoint =
@@ -245,6 +253,13 @@
 		if (!state.pairing || !url) return null;
 		var payload = JSON.parse(JSON.stringify(state.pairing));
 		payload.pairing.url = url;
+		/* /support/pairing always answers with keys.auth.strategies.localApiKey
+		 * .apiKeys[0] -- the single key from the container's environment -- so a
+		 * per-wallet key has to be substituted here. authentication-manager.js
+		 * accepts either: it checks the configured keys and the active rows of
+		 * api_keys, which is what makes revoking one wallet possible at all.
+		 */
+		if (state.showing) payload.pairing.apikey = state.showing.apikey;
 		return payload;
 	}
 
@@ -350,6 +365,288 @@
 		}
 	}
 
+	/* ---------------------------------------------------------- wallet keys */
+
+	/* Per-wallet API keys.
+	 *
+	 * Dojo has had the whole surface since 1.29 and nothing used it: the
+	 * api_keys table (db-scripts/2_update.sql) plus GET /support/apikeys, POST
+	 * /support/apikey and PATCH/DELETE /support/apikey/:apikey
+	 * (accounts/support-rest-api.js). Until now every wallet we paired received
+	 * the one key Umbrel derived into the container environment, so losing a
+	 * phone meant re-pairing everything or nothing.
+	 *
+	 * What makes revocation real rather than cosmetic:
+	 * lib/db/mysql-db-wrapper.js getActiveApiKeys() filters on
+	 * `active = TRUE AND expiresAt > CURRENT_TIMESTAMP`, and
+	 * lib/auth/authentication-manager.js accepts a key only if it is in the
+	 * configured list or in that filtered set. So revoking or letting a key
+	 * lapse genuinely cuts that wallet off.
+	 */
+
+	function node(tag, className, content) {
+		var element = document.createElement(tag);
+		if (className) element.className = className;
+		if (content !== undefined && content !== null) element.textContent = content;
+		return element;
+	}
+
+	function shortDate(value) {
+		if (!value) return null;
+		var when = Date.parse(value);
+		if (isNaN(when)) return null;
+		return new Date(when).toLocaleDateString(undefined, {
+			year: "numeric", month: "short", day: "numeric"
+		});
+	}
+
+	/* Three states, and all three are things the table can actually say.
+	 * Deliberately not a "last used" column: api_keys records createdAt and
+	 * expiresAt and nothing about use, so any "last seen" here would be
+	 * invented.
+	 */
+	function keyState(key) {
+		if (!key.active) return { word: "Revoked", pill: "off" };
+		var expires = Date.parse(key.expiresAt);
+		if (!isNaN(expires) && expires <= Date.now())
+			return { word: "Expired", pill: "warn" };
+		return { word: "Authorized", pill: "ok" };
+	}
+
+	function armConfirm(card, acts, message, label, run) {
+		var line = node("div", "confirm", message);
+		var bar = node("div", "wcard-acts");
+		var yes = node("button", "btn btn--danger btn--sm", label);
+		var no = node("button", "btn btn--ghost btn--sm", "Cancel");
+		yes.type = "button";
+		no.type = "button";
+
+		acts.hidden = true;
+		card.appendChild(line);
+		card.appendChild(bar);
+		bar.appendChild(yes);
+		bar.appendChild(no);
+
+		no.addEventListener("click", function () {
+			line.hidden = true;
+			bar.hidden = true;
+			acts.hidden = false;
+		});
+		yes.addEventListener("click", function () {
+			yes.disabled = true;
+			no.disabled = true;
+			// A success ends in loadKeys(), which rebuilds the list and throws
+			// this card away; only a failure has to put the buttons back.
+			run().catch(function (error) {
+				notice("wallets-error", error.message, "err");
+				yes.disabled = false;
+				no.disabled = false;
+			});
+		});
+	}
+
+	function walletCard(key) {
+		var status = keyState(key);
+		var card = node("div", "wcard");
+		var top = node("div", "top");
+		top.appendChild(node("span", "nm", key.label || "Unnamed"));
+		card.appendChild(top);
+		card.appendChild(node("span", "pill pill--" + status.pill, status.word));
+
+		var added = shortDate(key.createdAt);
+		var expires = shortDate(key.expiresAt);
+		card.appendChild(node(
+			"div", "meta",
+			(added ? "Added " + added : "") +
+				(added && expires ? " · " : "") +
+				(expires ? (status.word === "Expired" ? "Expired " : "Expires ") + expires : "")
+		));
+
+		if (status.word === "Expired") {
+			card.appendChild(node(
+				"div", "sub",
+				"This wallet has stopped syncing. Pair it again to give it a new key."
+			));
+		}
+
+		var acts = node("div", "wcard-acts");
+		card.appendChild(acts);
+
+		// A revoked or expired key's code would pair a wallet that cannot
+		// authenticate, so it is not offered.
+		if (status.word === "Authorized") {
+			var show = node("button", "btn btn--ghost btn--sm", "Show code");
+			show.type = "button";
+			show.addEventListener("click", function () {
+				showKey(key);
+			});
+			acts.appendChild(show);
+
+			var revoke = node("button", "btn btn--ghost btn--sm", "Revoke");
+			revoke.type = "button";
+			revoke.addEventListener("click", function () {
+				armConfirm(
+					card, acts,
+					"Cut " + (key.label || "this wallet") + " off now? It stops syncing " +
+						"immediately and the row stays here as a record.",
+					"Revoke",
+					function () { return revokeKey(key); }
+				);
+			});
+			acts.appendChild(revoke);
+		}
+
+		var forget = node("button", "btn btn--ghost btn--sm", "Forget");
+		forget.type = "button";
+		forget.addEventListener("click", function () {
+			armConfirm(
+				card, acts,
+				"Remove this row for good? The wallet is cut off either way; " +
+					"forgetting also loses the record that the key existed.",
+				"Forget",
+				function () { return forgetKey(key); }
+			);
+		});
+		acts.appendChild(forget);
+
+		return card;
+	}
+
+	function renderWallets() {
+		var host = el("wallet-rows");
+		host.innerHTML = "";
+
+		var authorized = 0;
+		state.keys.forEach(function (key) {
+			if (keyState(key).word === "Authorized") authorized += 1;
+			host.appendChild(walletCard(key));
+		});
+
+		// Plus one for the environment key, which is not in the table and never
+		// expires.
+		var total = authorized + 1;
+		el("wallet-count").textContent = total + (total === 1 ? " key" : " keys");
+	}
+
+	function loadKeys() {
+		return supportGet("/apikeys")
+			.then(function (body) {
+				var list = (body && body.data) || body;
+				state.keys = Array.isArray(list) ? list.slice() : [];
+				// Oldest first, so a newly minted key lands at the end where the
+				// user just asked for it.
+				state.keys.sort(function (a, b) { return a.apikeyID - b.apikeyID; });
+				notice("wallets-error", null);
+				renderWallets();
+			})
+			.catch(function (error) {
+				notice(
+					"wallets-error",
+					"Could not read this Dojo's wallet keys (" + error.message + ").",
+					"err"
+				);
+			});
+	}
+
+	function createKey() {
+		var name = el("pair-name").value.trim();
+		var days = parseInt(el("pair-expiry").value, 10);
+		notice("pair-error", null);
+
+		if (!name) {
+			notice(
+				"pair-error",
+				"Give the wallet a name, so you can tell which key to revoke later.",
+				"err"
+			);
+			el("pair-name").focus();
+			return Promise.resolve();
+		}
+		if (!days) days = 3650;
+
+		var expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+		var seen = {};
+		state.keys.forEach(function (key) { seen[key.apikeyID] = true; });
+
+		el("pair-create").disabled = true;
+		return supportSend("POST", "/apikey", { label: name, expiresAt: expiresAt })
+			.then(function () {
+				return loadKeys();
+			})
+			.then(function () {
+				/* POST answers {status:"ok"} and nothing else -- createApiKey
+				 * generates the key with crypto.randomBytes and never returns it --
+				 * so the only way to learn what was minted is to re-read the list.
+				 *
+				 * Matched on apikeyID rather than label: only `apikey` is UNIQUE in
+				 * the table, so two wallets may legitimately share a name and
+				 * matching on one would hand over the wrong key.
+				 */
+				var fresh = null;
+				state.keys.forEach(function (key) {
+					if (!seen[key.apikeyID] && (!fresh || key.apikeyID > fresh.apikeyID)) {
+						fresh = key;
+					}
+				});
+				if (!fresh) {
+					throw new Error(
+						"the key was created but could not be read back; it is in the " +
+							"list below"
+					);
+				}
+				showKey(fresh);
+			})
+			.catch(function (error) {
+				notice("pair-error", error.message, "err");
+			})
+			.then(function () {
+				el("pair-create").disabled = false;
+			});
+	}
+
+	function revokeKey(key) {
+		/* PATCH validates label, expiresAt and active and rejects the request if
+		 * any is missing, so a revoke has to send the first two back unchanged
+		 * rather than only the field it is changing.
+		 */
+		return supportSend("PATCH", "/apikey/" + encodeURIComponent(key.apikey), {
+			label: key.label,
+			expiresAt: key.expiresAt,
+			active: false
+		}).then(loadKeys);
+	}
+
+	function forgetKey(key) {
+		return supportSend(
+			"DELETE", "/apikey/" + encodeURIComponent(key.apikey)
+		).then(loadKeys);
+	}
+
+	/* The dialog has two faces: name a wallet, or show a code that already
+	 * exists. Both entrances open the first; a row's "Show code" opens the
+	 * second directly, minting nothing.
+	 */
+	function showKey(key) {
+		state.showing = key || null;
+		el("pair-new").hidden = true;
+		el("pair-code").hidden = false;
+		el("pair-which").textContent = key
+			? "Pairing code for " + (key.label || "this wallet") + "."
+			: "The default key. Every wallet paired before per-wallet keys existed " +
+				"is using this one, and it cannot be revoked from here.";
+		renderPairing();
+		openPair(true);
+	}
+
+	function showNewKeyForm() {
+		el("pair-new").hidden = false;
+		el("pair-code").hidden = true;
+		notice("pair-error", null);
+		el("pair-name").value = "";
+		openPair(true);
+		el("pair-name").focus();
+	}
+
 	/* ----------------------------------------------------------------- wiring */
 
 	function bindCopyAndReveal() {
@@ -440,14 +737,32 @@
 	 * invisible. Retry once only: a 401 immediately after a fresh login is a
 	 * real authorization failure, not an expiry, and retrying it would loop.
 	 */
-	function authedFetch(url, retried) {
-		return fetch(url, {
-			headers: { Authorization: "Bearer " + state.token }
-		}).then(function (response) {
+	function authedFetch(url, options, retried) {
+		var init = { headers: {} };
+		var name;
+		if (options) {
+			for (name in options) {
+				if (Object.prototype.hasOwnProperty.call(options, name) && name !== "headers") {
+					init[name] = options[name];
+				}
+			}
+			if (options.headers) {
+				for (name in options.headers) {
+					if (Object.prototype.hasOwnProperty.call(options.headers, name)) {
+						init.headers[name] = options.headers[name];
+					}
+				}
+			}
+		}
+		init.headers.Authorization = "Bearer " + state.token;
+
+		return fetch(url, init).then(function (response) {
 			if (response.status !== 401 || retried) return response;
+			/* Safe to replay a write here: a 401 means Dojo refused the request,
+			 * not that it applied it and then complained. */
 			return login().then(function (token) {
 				state.token = token;
-				return authedFetch(url, true);
+				return authedFetch(url, options, true);
 			});
 		});
 	}
@@ -509,6 +824,16 @@
 
 	function supportGet(path) {
 		return authedFetch(apiBase + "/" + conf.supportPrefix + path).then(unwrap);
+	}
+
+	// POST, PATCH and DELETE on the apikey routes. They take JSON bodies, unlike
+	// /auth/login, which is form-encoded.
+	function supportSend(method, path, body) {
+		return authedFetch(apiBase + "/" + conf.supportPrefix + path, {
+			method: method,
+			headers: body ? { "Content-Type": "application/json" } : {},
+			body: body ? JSON.stringify(body) : undefined
+		}).then(unwrap);
 	}
 
 	// The tracker is a separate service on its own port; connect.conf proxies
@@ -670,13 +995,21 @@
 
 	el("pair-toggle").addEventListener("click", function () {
 		// .open, not .hidden -- a dialog's visibility is not the hidden attribute.
-		openPair(!el("pair-panel").open);
+		if (el("pair-panel").open) openPair(false);
+		else showNewKeyForm();
 	});
-	el("pair-toggle-2").addEventListener("click", function () {
-		openPair(true);
-	});
+	el("pair-toggle-2").addEventListener("click", showNewKeyForm);
 	el("pair-close").addEventListener("click", function () {
 		openPair(false);
+	});
+	el("pair-create").addEventListener("click", createKey);
+	el("pair-name").addEventListener("keydown", function (event) {
+		if (event.key === "Enter") createKey();
+	});
+	// The fallback path: today's payload, on the key every already-paired wallet
+	// holds.
+	el("legacy-show").addEventListener("click", function () {
+		showKey(null);
 	});
 	// Esc and the backdrop close the dialog without going through openPair, so
 	// keep aria-expanded honest however it was dismissed.
@@ -711,7 +1044,10 @@
 			state.token = token;
 			return Promise.all([
 				authedGet("/" + conf.supportPrefix + "/pairing"),
-				refresh()
+				refresh(),
+				// Its own failure path: an unreadable key list is reported on the
+				// wallets card and must not take the rest of the page down with it.
+				loadKeys()
 			]);
 		})
 		.then(function (results) {

@@ -85,6 +85,38 @@
         <h2 id="pair-title">Pair a wallet</h2>
         <button class="iconbtn" type="button" id="pair-close" aria-label="Close">&times;</button>
       </div>
+      <!-- Step one. Nothing is minted until this is submitted, so opening the
+           dialog to look at it never leaves a key behind. The name is the only
+           thing that makes the list below readable later: api_keys.label is
+           free text and nothing else distinguishes one key from another. -->
+      <div id="pair-new">
+        <p class="muted">
+          Each wallet gets its own key, so losing one phone means revoking one
+          key rather than re-pairing everything.
+        </p>
+        <label class="field-label" for="pair-name">Wallet name</label>
+        <div class="copy-row">
+          <input id="pair-name" type="text" maxlength="30" autocomplete="off"
+                 spellcheck="false" placeholder="Phone, Sentinel&hellip;">
+          <select id="pair-expiry" aria-label="Key lifetime">
+            <option value="3650" selected>Expires in 10 years</option>
+            <option value="365">Expires in 1 year</option>
+            <option value="90">Expires in 90 days</option>
+          </select>
+          <button class="btn btn--primary" type="button" id="pair-create">Create code</button>
+        </div>
+        <p class="muted small">
+          An expiry is a backstop, not a schedule: a key that lapses stops a
+          wallet syncing until you pair it again. Ten years unless you have a
+          reason to want it shorter.
+        </p>
+        <p class="notice" id="pair-error" hidden></p>
+      </div>
+
+      <!-- Step two: the code itself. Also what a "Show code" action opens
+           directly, with no minting. -->
+      <div id="pair-code" hidden>
+      <p class="muted small" id="pair-which"></p>
       <p class="muted" id="pairing-hint">
         This is your Dojo's Tor address. It works from anywhere, not just at
         home, and keeps the connection private. Your wallet needs Tor enabled.
@@ -160,6 +192,7 @@
             server.</li>
         </ol>
       </details>
+      </div>
     </dialog>
 
     <!-- Paired wallets --------------------------------------------------->
@@ -167,23 +200,38 @@
       <div class="card-head">
         <h2><span class="rule" aria-hidden="true"></span>Paired wallets</h2>
         <span class="spacer"></span>
-        <span class="muted small">1 key</span>
+        <span class="muted small" id="wallet-count">&mdash;</span>
       </div>
+
+      <p class="notice" id="wallets-error" hidden></p>
 
       <div class="wallets">
         <!-- The key Umbrel derives for this app. It lives in the container's
              environment, not the api_keys table, so it cannot be revoked from
-             here -- and every wallet paired so far is using it. Saying so is
-             the honest alternative to a list that implies otherwise. -->
+             here, and every wallet paired before per-wallet keys existed is
+             using it. Saying so is the honest alternative to a list that
+             implies otherwise. -->
         <div class="wcard">
           <div class="top"><span class="nm">Default key</span></div>
           <span class="pill pill--ok">Authorized</span>
-          <div class="sub">Used by every wallet paired with the code above.</div>
+          <div class="sub">
+            Shared by every wallet paired before per-wallet keys existed.
+          </div>
           <div class="note muted small">
-            Derived by Umbrel for this app. It cannot be revoked from this page;
-            reinstalling the app is what replaces it.
+            Derived by Umbrel for this app, so it cannot be revoked from this
+            page &mdash; reinstalling is what replaces it. Pair new wallets with
+            their own key instead, and each one can be cut off on its own.
+          </div>
+          <div class="wcard-acts">
+            <!-- Kept deliberately. If a minted key turns out not to work in some
+                 wallet build, this is the known-good path back. -->
+            <button class="btn btn--ghost btn--sm" type="button" id="legacy-show">Show code</button>
           </div>
         </div>
+
+        <!-- display: contents, so these sit in the same grid as the two cards
+             either side of them rather than sharing one cell. -->
+        <div class="wallets-rows" id="wallet-rows"></div>
 
         <button class="wcard wcard--add" type="button" id="pair-toggle-2">
           <span class="plus" aria-hidden="true">+</span>

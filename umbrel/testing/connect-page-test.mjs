@@ -97,11 +97,31 @@ function makeElement(id) {
 	};
 }
 
+const DAY = 86_400_000;
+
+/* The api_keys table as Dojo reports it: apikeyID, label, apikey, active,
+ * createdAt, expiresAt and nothing else. No "last used" column exists, which is
+ * why the page shows authorization rather than activity. */
+const defaultKeys = () => [
+	{ apikeyID: 1, label: "Phone", apikey: "aaaa1111", active: true,
+		createdAt: new Date(Date.now() - 30 * DAY).toISOString(),
+		expiresAt: new Date(Date.now() + 3650 * DAY).toISOString() },
+	{ apikeyID: 2, label: "Old tablet", apikey: "bbbb2222", active: true,
+		createdAt: new Date(Date.now() - 400 * DAY).toISOString(),
+		expiresAt: new Date(Date.now() - 2 * DAY).toISOString() },
+	{ apikeyID: 3, label: "Lost phone", apikey: "cccc3333", active: false,
+		createdAt: new Date(Date.now() - 100 * DAY).toISOString(),
+		expiresAt: new Date(Date.now() + 3650 * DAY).toISOString() }
+];
+
 function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxDown = false,
-	explorerUrl = "http://my-own-mempool.onion" } = {}) {
+	explorerUrl = "http://my-own-mempool.onion",
+	keys = defaultKeys(), keysFail = false } = {}) {
 	const elements = new Map();
-	const calls = { login: 0, status: 0, onion: 0, other: [] };
+	const calls = { login: 0, status: 0, onion: 0, other: [], keys: [] };
 	let statusUnauthorizedOnce = false;
+	let rows = keys.map((key) => ({ ...key }));
+	let nextKeyId = rows.reduce((top, key) => Math.max(top, key.apikeyID), 0) + 1;
 
 	const document = {
 		getElementById(id) {
@@ -177,6 +197,43 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 					})
 				: json({ error: "nope" }, 500);
 		}
+		/* The apikey surface. Method-aware, and it mutates `rows`, because the
+		 * behaviour under test is a round trip: POST answers {status:"ok"} and
+		 * never returns the key it minted, so the page has to re-read the list to
+		 * learn what it got. A fixture that handed the key back would test a
+		 * server that does not exist. */
+		const method = (options && options.method) || "GET";
+		if (url.endsWith("/apikeys")) {
+			calls.keys.push({ method, url });
+			if (keysFail) return json({ error: "no table" }, 500);
+			return json(rows.map((key) => ({ ...key })));
+		}
+		if (url.includes("/apikey")) {
+			const body = options && options.body ? JSON.parse(options.body) : null;
+			calls.keys.push({ method, url, body });
+			if (method === "POST") {
+				rows.push({
+					apikeyID: nextKeyId, label: body.label, apikey: `minted${nextKeyId}`,
+					active: true, createdAt: new Date().toISOString(),
+					expiresAt: body.expiresAt
+				});
+				nextKeyId += 1;
+				return json({ status: "ok" });
+			}
+			const target = url.split("/apikey/")[1];
+			if (method === "PATCH") {
+				rows = rows.map((key) =>
+					key.apikey === target
+						? { ...key, label: body.label, active: body.active, expiresAt: body.expiresAt }
+						: key);
+				return json({ status: "ok" });
+			}
+			if (method === "DELETE") {
+				rows = rows.filter((key) => key.apikey !== target);
+				return json({ status: "ok" });
+			}
+		}
+
 		calls.other.push({ url, options });
 		if (url.includes("/xpub/")) {
 			return json({ tracked: true, balance: 42_170_000, n_tx: 38, derivation: "m/84'/1'/0'", derived: { external: 214, internal: 110 }, unused: { external: 97, internal: 40 } });
@@ -518,6 +575,245 @@ process.stdout.write("\nConnect page\n");
 			hit.url === "/test/v2/tracker/support/rescan?fromHeight=91000&toHeight=92417",
 			`got ${hit.url}`
 		);
+	});
+}
+
+/* --------------------------------------------------- per-wallet API keys */
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("the key list is read at load and rendered", () => {
+		assert(h.calls.keys.length >= 1, "expected a GET /support/apikeys");
+		assert(h.calls.keys[0].method === "GET", `got ${h.calls.keys[0].method}`);
+		assert(h.el("wallet-rows").children.length === 3, `got ${h.el("wallet-rows").children.length} rows`);
+	});
+
+	check("each key shows the state the table can actually prove", () => {
+		const pills = h.el("wallet-rows").children.map(
+			(card) => card.children.find((kid) => (kid.className || "").indexOf("pill") === 0)
+		);
+		assert(pills.every(Boolean), "every card needs a pill");
+		assert(
+			pills.map((pill) => pill.textContent).join(",") === "Authorized,Expired,Revoked",
+			`got ${pills.map((pill) => pill.textContent).join(",")}`
+		);
+	});
+
+	check("the count includes the environment key, which is not in the table", () => {
+		// One authorized row plus the key Umbrel derived into the container.
+		assert(h.el("wallet-count").textContent === "2 keys", `got ${h.el("wallet-count").textContent}`);
+	});
+
+	check("neither pairing entrance mints a key", () => {
+		const before = h.calls.keys.length;
+		h.el("pair-toggle").click();
+		h.el("pair-toggle-2").click();
+		assert(h.el("pair-panel").open === true, "the dialog should be open");
+		assert(h.el("pair-new").hidden === false, "the naming step should be showing");
+		assert(h.el("pair-code").hidden === true, "no code until a key is chosen");
+		assert(h.calls.keys.length === before, "opening the dialog wrote to the key list");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	h.el("pair-toggle-2").click();
+	const before = h.calls.keys.length;
+	h.el("pair-create").click();
+	await h.settle();
+
+	check("creating without a name is refused locally, with nothing sent", () => {
+		assert(h.el("pair-error").hidden === false, "expected an error");
+		assert(
+			h.calls.keys.filter((call) => call.method === "POST").length === 0,
+			"a nameless key was sent to Dojo"
+		);
+		assert(h.calls.keys.length === before, "unexpected traffic");
+		assert(h.el("pair-code").hidden === true, "no code should appear");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	h.el("pair-toggle-2").click();
+	h.el("pair-name").value = "Ashigaru";
+	h.el("pair-create").click();
+	await h.settle();
+
+	const posts = h.calls.keys.filter((call) => call.method === "POST");
+
+	check("creating a key posts the name and a ten-year expiry by default", () => {
+		assert(posts.length === 1, `expected 1 POST, got ${posts.length}`);
+		assert(posts[0].body.label === "Ashigaru", `got ${posts[0].body.label}`);
+		const years = (Date.parse(posts[0].body.expiresAt) - Date.now()) / (365 * DAY);
+		assert(years > 9.5 && years < 10.5, `expected ~10 years, got ${years.toFixed(2)}`);
+	});
+
+	check("the minted key is read back and its own code shown", () => {
+		// POST returns {status:"ok"} and nothing else, so the page must re-GET
+		// and find the new row by apikeyID -- label is not unique in the table.
+		assert(
+			h.calls.keys.filter((call) => call.method === "GET").length >= 2,
+			"expected a second GET to read the key back"
+		);
+		assert(h.el("pair-code").hidden === false, "the code should be showing");
+		assert(h.el("pair-new").hidden === true, "the naming step should be gone");
+		assert(
+			h.el("pair-which").textContent.indexOf("Ashigaru") !== -1,
+			`got ${h.el("pair-which").textContent}`
+		);
+	});
+
+	check("the payload carries the new key, not the shared one", () => {
+		// The whole point of the feature. /support/pairing always answers with
+		// the environment key ("k" in this fixture); the page swaps in the
+		// minted one, or revoking a wallet would do nothing.
+		const payload = JSON.parse(h.el("pairing-json").textContent);
+		assert(payload.pairing.apikey === "minted4", `got ${payload.pairing.apikey}`);
+		assert(payload.pairing.url === "http://abcdef123456.onion/test/v2", `got ${payload.pairing.url}`);
+	});
+
+	check("the new wallet appears in the list", () => {
+		assert(h.el("wallet-rows").children.length === 4, `got ${h.el("wallet-rows").children.length}`);
+		assert(h.el("wallet-count").textContent === "3 keys", `got ${h.el("wallet-count").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	// The first card is the authorized one: Show code, Revoke, Forget.
+	const card = h.el("wallet-rows").children[0];
+	const acts = card.children.find((kid) => kid.className === "wcard-acts");
+	const labels = acts.children.map((button) => button.textContent);
+
+	check("an authorized key offers a code, a revoke and a forget", () => {
+		assert(labels.join(",") === "Show code,Revoke,Forget", `got ${labels.join(",")}`);
+	});
+
+	check("a revoked key offers no code to pair with", () => {
+		const revoked = h.el("wallet-rows").children[2];
+		const bar = revoked.children.find((kid) => kid.className === "wcard-acts");
+		assert(
+			bar.children.map((b) => b.textContent).join(",") === "Forget",
+			`got ${bar.children.map((b) => b.textContent).join(",")}`
+		);
+	});
+
+	check("showing a key's code swaps that key into the payload", () => {
+		acts.children[0].click();
+		assert(h.el("pair-panel").open === true, "the dialog should open");
+		assert(h.el("pair-code").hidden === false, "straight to the code, no naming step");
+		const payload = JSON.parse(h.el("pairing-json").textContent);
+		assert(payload.pairing.apikey === "aaaa1111", `got ${payload.pairing.apikey}`);
+	});
+
+	check("revoking asks before it sends anything", () => {
+		const before = h.calls.keys.filter((call) => call.method === "PATCH").length;
+		acts.children[1].click();
+		assert(
+			h.calls.keys.filter((call) => call.method === "PATCH").length === before,
+			"the first click revoked without confirmation"
+		);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	const card = h.el("wallet-rows").children[0];
+	const acts = card.children.find((kid) => kid.className === "wcard-acts");
+	acts.children[1].click();
+	// armConfirm appends the prompt and a second action bar to the card.
+	const bars = card.children.filter((kid) => kid.className === "wcard-acts");
+	bars[bars.length - 1].children[0].click();
+	await h.settle();
+
+	const patches = h.calls.keys.filter((call) => call.method === "PATCH");
+
+	check("confirming a revoke sends all three fields PATCH requires", () => {
+		// updateApiKey rejects a partial body: label, expiresAt and active are
+		// each validated, so a revoke has to send the first two back unchanged.
+		assert(patches.length === 1, `expected 1 PATCH, got ${patches.length}`);
+		assert(patches[0].url.indexOf("/apikey/aaaa1111") !== -1, `got ${patches[0].url}`);
+		assert(patches[0].body.active === false, `got active ${patches[0].body.active}`);
+		assert(patches[0].body.label === "Phone", `got label ${patches[0].body.label}`);
+		assert(typeof patches[0].body.expiresAt === "string", "expiresAt must be sent back");
+	});
+
+	check("the row stays, now reading Revoked", () => {
+		const pills = h.el("wallet-rows").children.map(
+			(c) => c.children.find((kid) => (kid.className || "").indexOf("pill") === 0).textContent
+		);
+		assert(h.el("wallet-rows").children.length === 3, "nothing should be deleted");
+		assert(pills[0] === "Revoked", `got ${pills[0]}`);
+		assert(h.el("wallet-count").textContent === "1 key", `got ${h.el("wallet-count").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	const card = h.el("wallet-rows").children[1];
+	const acts = card.children.find((kid) => kid.className === "wcard-acts");
+	// The expired key offers Forget only, so that is index 0.
+	acts.children[0].click();
+	const bars = card.children.filter((kid) => kid.className === "wcard-acts");
+	bars[bars.length - 1].children[0].click();
+	await h.settle();
+
+	check("confirming a forget deletes the row", () => {
+		const deletes = h.calls.keys.filter((call) => call.method === "DELETE");
+		assert(deletes.length === 1, `expected 1 DELETE, got ${deletes.length}`);
+		assert(deletes[0].url.indexOf("/apikey/bbbb2222") !== -1, `got ${deletes[0].url}`);
+		assert(h.el("wallet-rows").children.length === 2, `got ${h.el("wallet-rows").children.length}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	h.el("legacy-show").click();
+
+	check("the default key still produces today's payload as a fallback", () => {
+		const payload = JSON.parse(h.el("pairing-json").textContent);
+		assert(payload.pairing.apikey === "k", `got ${payload.pairing.apikey}`);
+		assert(
+			h.el("pair-which").textContent.indexOf("cannot be revoked") !== -1,
+			`got ${h.el("pair-which").textContent}`
+		);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", keysFail: true });
+	h.run();
+	await h.settle();
+
+	check("an unreadable key list is reported without taking the page down", () => {
+		assert(h.el("wallets-error").hidden === false, "expected the wallets error");
+		assert(h.el("wallet-rows").children.length === 0, "no rows should be rendered");
+		// The rest of the page still has to work: the key list failing is not a
+		// reason to lose status or pairing.
+		assert(h.el("chain-headline").textContent !== "—", "the band should still render");
+		assert(h.el("endpoint").value === "http://abcdef123456.onion/test/v2", `got ${h.el("endpoint").value}`);
 	});
 }
 
