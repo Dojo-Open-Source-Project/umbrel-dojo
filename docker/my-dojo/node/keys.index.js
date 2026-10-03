@@ -38,7 +38,14 @@ let indexerType = null;
 
 if (process.env.INDEXER_INSTALL === "on") {
 	indexerType = process.env.INDEXER_TYPE;
-	indexerUrl = `${process.env.INDEXER_PROTOCOL}://${fs.readFileSync("/var/lib/tor/hsv3electrum/hostname", "utf8").trim()}:50001`;
+	// UMBREL DELTA: guarded, matching the hsv3dojo read above. This file is
+	// imported by every pm2 app, so an unguarded throw here does not degrade
+	// one feature -- it stops Dojo starting at all.
+	try {
+		indexerUrl = `${process.env.INDEXER_PROTOCOL}://${fs.readFileSync("/var/lib/tor/hsv3electrum/hostname", "utf8").trim()}:50001`;
+	} catch (error) {
+		console.error(error);
+	}
 }
 
 // Retrieve Soroban config from conf files
@@ -57,7 +64,15 @@ if (process.env.SOROBAN_INSTALL === "on") {
 		sorobanKeyAuth47 = "soroban.auth47.testnet.auth";
 	}
 	if (process.env.SOROBAN_ANNOUNCE === "on") {
-		sorobanExternalUrl = `http://${fs.readFileSync("/var/lib/tor/hsv3soroban/hostname", "utf8").trim()}/rpc`;
+		// UMBREL DELTA: guarded, as above. Soroban writes this file only after
+		// its own Tor has bootstrapped, which is tens of seconds after this
+		// process starts; the node service waits for it, and this catch is what
+		// keeps a lost race from killing Dojo outright.
+		try {
+			sorobanExternalUrl = `http://${fs.readFileSync("/var/lib/tor/hsv3soroban/hostname", "utf8").trim()}/rpc`;
+		} catch (error) {
+			console.error(error);
+		}
 	}
 }
 

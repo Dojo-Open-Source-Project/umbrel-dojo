@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.9"
+version: "1.29.3-patch.10"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,26 +37,24 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  The app's page is now three tabs with a bar along the bottom, the way
-  umbrelOS's own apps work. Home is the glance: whether Dojo is working, what
-  the next block costs, and the wallets you have paired. Tools holds looking up
-  a wallet or address and the two rescans. Advanced holds the admin key and the
-  Maintenance Tool. Pair wallet stays in the corner on every tab.
+  Fixes the Soroban announce setting, which in the previous release stopped Dojo
+  starting if you turned it on. Dojo reads Soroban's address from a file it
+  could not see, and failed before any of it came up. If that happened to you,
+  nothing was damaged — switching the setting back off recovered it — and this
+  release makes the setting work rather than removing it.
 
 
-  Home now shows next block fees on the page itself, the same four figures as
-  the home-screen widget: the rate at which a transaction has a 50%, 90%, 99%
-  or 99.9% chance of being confirmed in the very next block. They come from the
-  nextblock estimator running against your own node, so you are not asking
-  anyone else what the fees are.
+  Turning on relaying now does what it says: your Dojo passes other people's
+  transactions along as well as your own, and publishes an address for other
+  nodes to reach it. Both settings live in umbrelOS under this app's settings,
+  and the Advanced tab shows which are in force. Leaving them alone is still a
+  perfectly good choice — broadcasting through Soroban is on by default and is
+  the part that keeps your own transactions from being traced to your node.
 
 
-  You can also now choose how Dojo broadcasts, in umbrelOS under this app's
-  settings. By default your transactions are handed to a random node on the
-  Soroban network, so the node that announces yours is not your own. You can
-  turn that off, or turn on relaying other people's transactions as well —
-  which also publishes an inbound address for other nodes to reach. The
-  Advanced tab shows which of these are in force.
+  Everything else arrived in the previous release: the page is three tabs with a
+  bar along the bottom, Home shows next block fees alongside your paired
+  wallets, and every wallet you pair gets its own revocable key.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

@@ -15,6 +15,7 @@ There is no electrs stand-in. Dojo only talks to the indexer for xpub imports
 and rescans, which need a real chain; the rest of the app does not depend on
 it. That gap is the main thing this harness cannot cover.
 """
+import os
 import pathlib
 import sys
 
@@ -40,6 +41,19 @@ def main(out_path: str, data_dir: str, package_dir: str = None) -> None:
     services.pop("app_proxy", None)
     for name, service in services.items():
         service["container_name"] = f"{app_id}_{name}_1"
+
+    # ANNOUNCE=1 reproduces what umbrelOS does when the user turns Soroban
+    # announce on in the app's settings: it writes the override into every
+    # service the manifest's `environment:` entry names, which is how the
+    # compose's own hardcoded "off" gets replaced.
+    #
+    # Worth being able to test. Turning this on used to kill Dojo outright --
+    # keys/index.js read Soroban's onion from a path the node container did not
+    # mount -- and a setting the harness cannot exercise is a setting that ships
+    # unverified.
+    if os.environ.get("ANNOUNCE") == "1":
+        for name in ("node", "soroban", "nginx"):
+            services[name].setdefault("environment", {})["SOROBAN_ANNOUNCE"] = "on"
 
     # Reach the app from the host.
     services["nginx"].setdefault("ports", []).append(f"{proxy_port}:8081")

@@ -100,7 +100,36 @@ function, which is a larger delta to re-apply on every upstream bump than the
 cosmetic payoff justifies. The state is transient for us: Mempool is a required
 dependency, so the steady state has an explorer.
 
-### 4. Files upstream generates at install time
+### 4. `docker/my-dojo/node/keys.index.js` — guard the remaining hostname reads
+
+This file is imported by every pm2 app, so anything it throws at module load
+stops Dojo starting at all rather than disabling one feature. Upstream already
+knows this: the `hsv3dojo` read and the `hsv3explorer` read are both wrapped in
+try/catch. Two others are not.
+
+```js
+indexerUrl = `...${fs.readFileSync("/var/lib/tor/hsv3electrum/hostname", ...)}:50001`;   // INDEXER_INSTALL=on
+sorobanExternalUrl = `http://${fs.readFileSync("/var/lib/tor/hsv3soroban/hostname", ...)}/rpc`;  // SOROBAN_ANNOUNCE=on
+```
+
+Both read a path that exists in MyDojo, where `/var/lib/tor` is a volume shared
+with Dojo's own Tor container, and neither exists in the node container under
+Umbrel unless the package mounts it.
+
+**This shipped as a live bug.** `1.29.3-patch.9` exposed `SOROBAN_ANNOUNCE` as an
+umbrelOS app setting; turning it on made all five processes die at import with
+`ENOENT: /var/lib/tor/hsv3soroban/hostname`, and the app never listened on 8080.
+The warning against `INDEXER_INSTALL` in section 6 below had described the
+identical hazard for a year without anyone applying it to its neighbour.
+
+The package now mounts `${APP_DATA_DIR}/data/soroban` at `/var/lib/tor/hsv3soroban`
+and waits for the file before starting the node, so the read normally succeeds —
+these guards are the backstop for a lost race, not the fix.
+
+Kept local rather than upstreamed, by choice. Worth revisiting: it costs
+upstream nothing and removes the same trap for every other packager.
+
+### 5. Files upstream generates at install time
 
 Upstream's `docker/my-dojo/install/install-scripts.sh` writes several gitignored files on the host
 before `docker compose build` runs. We do not run `dojo.sh`, so `umbrel/scripts/prepare-build.sh`
@@ -112,15 +141,17 @@ makes the same choices, once, for both CI and local builds:
 | `static/admin/conf/index.js` | `index-mainnet.js` or `index-testnet.js` | not generated; nginx serves the network-specific file instead, so the image stays network-agnostic (see `umbrel/images/nginx/`) |
 | `docker/my-dojo/nginx/dojo.conf` | `mainnet.conf` or `testnet.conf` | not used; we build our own nginx image |
 
-### 5. Things deliberately *not* patched
+### 6. Things deliberately *not* patched
 
-- `docker/my-dojo/node/keys.index.js` needs no changes. It already reads `BITCOIND_*`,
-  `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`, `NET_DOJO_TOR_IPV4` and the
-  `NODE_*` settings from the environment, and wraps the `hsv3dojo` hostname read in try/catch.
-- **Do not set `INDEXER_INSTALL=on`** in the Umbrel package. That branch does an unguarded
-  `readFileSync('/var/lib/tor/hsv3electrum/hostname')`, which only exists when Dojo runs its own
-  bundled indexer behind its own Tor container. Umbrel points Dojo at the `electrs` (or `fulcrum`)
-  app instead, via `NODE_ACTIVE_INDEXER=local_indexer` + `INDEXER_IP`/`INDEXER_RPC_PORT`.
+- `docker/my-dojo/node/keys.index.js` takes everything else from the environment —
+  `BITCOIND_*`, `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`,
+  `NET_DOJO_TOR_IPV4` and the `NODE_*` settings — and needs no changes beyond the guards in
+  delta 4.
+- **Do not set `INDEXER_INSTALL=on`** in the Umbrel package. That branch reads
+  `/var/lib/tor/hsv3electrum/hostname`, which only exists when Dojo runs its own bundled indexer
+  behind its own Tor container. Delta 4 means it no longer takes Dojo down, but the indexer URL
+  would be null and the setting pointless: Umbrel points Dojo at the `electrs` (or `fulcrum`) app
+  instead, via `NODE_ACTIVE_INDEXER=local_indexer` + `INDEXER_IP`/`INDEXER_RPC_PORT`.
 - `docker/my-dojo/dojo.sh`, `install/`, `overrides/`, and the bitcoind/explorer/indexer/fulcrum
   image definitions are kept as upstream ships them. Umbrel provides those services as separate
   apps, so we simply do not build or run them.
@@ -133,5 +164,5 @@ git rm -rq . && git checkout vX.Y.Z -- .        # restores our own files in the 
 git checkout HEAD@{1} -- umbrel .github UMBREL.md README.md
 ```
 
-Then re-apply deltas 1 and 2, re-read `RELEASES.md` for anything affecting the package (new env vars,
+Then re-apply deltas 1, 2 and 4, re-read `RELEASES.md` for anything affecting the package (new env vars,
 schema migrations, service topology), update the version tags in `umbrel/dojo/`, and rebuild.

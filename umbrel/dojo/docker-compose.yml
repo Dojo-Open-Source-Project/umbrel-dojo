@@ -35,7 +35,13 @@ services:
     # import time and uses it to build the auth47 callback URL. Give Tor a
     # bounded chance to publish it on a first install so auth47 is live
     # straight away; Dojo starts fine without it either way.
-    command: sh -c 'n=0; while [ ! -f /var/lib/tor/hsv3dojo/hostname ] && [ $$n -lt 60 ]; do n=$$((n+1)); sleep 2; done; exec /home/node/app/wait-for-it.sh dojo_db_1:3306 --timeout=720 --strict -- /home/node/app/restart.sh'
+    # The second wait is for Soroban's own onion, and only when the user has
+    # turned announcing on. keys/index.js reads that hostname at import time,
+    # and Soroban writes it only after its Tor has bootstrapped -- tens of
+    # seconds after this container starts. Without the wait the read loses the
+    # race on every cold start. `$$` is compose's escape for a literal `$`, so
+    # SOROBAN_ANNOUNCE is expanded by the container's shell, not by compose.
+    command: sh -c 'n=0; while [ ! -f /var/lib/tor/hsv3dojo/hostname ] && [ $$n -lt 60 ]; do n=$$((n+1)); sleep 2; done; if [ "$$SOROBAN_ANNOUNCE" = "on" ]; then n=0; while [ ! -f /var/lib/tor/hsv3soroban/hostname ] && [ $$n -lt 90 ]; do n=$$((n+1)); sleep 2; done; fi; exec /home/node/app/wait-for-it.sh dojo_db_1:3306 --timeout=720 --strict -- /home/node/app/restart.sh'
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +54,11 @@ services:
       # the file: hooks/pre-start only writes hostname once Mempool has
       # published, and an absent file is what tells Dojo there is no explorer.
       - ${APP_DATA_DIR}/data/explorer:/var/lib/tor/hsv3explorer:ro
+      # Soroban's own onion, for when announcing is on. Soroban writes it to
+      # /home/soroban/data/hostname (SOROBAN_ONION_FILE), which is this same
+      # host directory, and Dojo looks for it under hsv3soroban -- so this
+      # mount is only renaming the path Dojo expects onto the one that exists.
+      - ${APP_DATA_DIR}/data/soroban:/var/lib/tor/hsv3soroban:ro
     environment:
       # pm2 keeps its state under $HOME; without this it lands on / and the
       # process manager cannot start.

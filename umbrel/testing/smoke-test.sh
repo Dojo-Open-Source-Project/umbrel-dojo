@@ -15,6 +15,13 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK_DIR="${WORK_DIR:-${TMPDIR:-/tmp}/dojo-smoke-test}"
 KEEP="${KEEP:-0}"
+# ANNOUNCE=1 turns Soroban announcing on, the way umbrelOS does when the user
+# flips it in the app's settings. Worth running after any change to the node
+# service's startup: that path reads Soroban's onion at import time, and
+# getting it wrong takes Dojo down rather than degrading it.
+#   ANNOUNCE=1 ./umbrel/testing/smoke-test.sh
+ANNOUNCE="${ANNOUNCE:-0}"
+export ANNOUNCE
 
 # Which package to test. Defaults to the App Store package; point it at a
 # generated community store to check that variant, where the app id carries the
@@ -212,6 +219,21 @@ else
 fi
 
 step "Soroban"
+if [ "${ANNOUNCE}" = "1" ]; then
+	step "Soroban announcing"
+	# The regression this mode exists for: with announcing on, Dojo used to die at
+	# import with ENOENT on /var/lib/tor/hsv3soroban/hostname, so nothing ever
+	# listened on 8080. Reaching the API at all is the assertion.
+	check "the node still serves the API with announcing on" \
+		curl -sf "${API_URL}/admin/"
+	check "soroban published an onion" \
+		sh -c "test -s '${WORK_DIR}/app-data/data/soroban/hostname'"
+	check "the node can read it at the path Dojo expects" \
+		docker exec ${APP_ID}_node_1 test -s /var/lib/tor/hsv3soroban/hostname
+	check "and no process died reading it" \
+		sh -c "! docker logs ${APP_ID}_node_1 2>&1 | grep -q 'hsv3soroban/hostname'"
+fi
+
 step "Widget endpoint (published on ${WIDGET_URL})"
 # The feerates themselves cannot be checked here: Dojo's estimator reports
 # nothing until bitcoind's mempool is loaded, and regtest has no mempool worth
