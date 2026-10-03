@@ -22,6 +22,7 @@ const connect = join(here, "..", "images", "nginx", "connect");
 
 const html = readFileSync(join(connect, "index.html"), "utf8");
 const appSource = readFileSync(join(connect, "js", "app.js"), "utf8");
+const cssSource = readFileSync(join(connect, "css", "style.css"), "utf8");
 
 const htmlIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 // Elements carrying a bare `hidden` attribute must start hidden in the stub
@@ -334,14 +335,13 @@ process.stdout.write("\nConnect page\n");
 		assert(h.el("pair-toggle").disabled === false, "the Pair wallet button must not be disabled");
 	});
 
-	// /support/services reports configuration, not health, so this lamp is
-	// static markup and app.js must leave it alone.
-	check("Soroban is never reported as healthy", () => {
+	// Soroban goes green only on a signal that actually proves it: pushtx waits
+	// for its RPC before listening whenever PandoTx push is on, so pushtx
+	// answering means the RPC is up.
+	check("Soroban reads healthy when pushtx answered and push is on", () => {
 		const lamp = h.el("svc-soroban");
-		assert(lamp.className === "", "app.js should not reclassify the Soroban lamp");
-		assert(lamp.getAttribute("aria-label") === null, "app.js should not relabel the Soroban lamp");
-		assert(/id="svc-soroban"[^>]*aria-label="Enabled"/.test(html), "index.html should label it Enabled");
-		assert(/dot--idle[^>]*id="svc-soroban"/.test(html), "index.html should give it the neutral lamp");
+		assert(lamp.className === "dot dot--ok", `got ${lamp.className}`);
+		assert(lamp.getAttribute("aria-label") === "Healthy", `got ${lamp.getAttribute("aria-label")}`);
 	});
 
 	// With the detail lines gone the lamp is the only visible signal, so its
@@ -972,6 +972,94 @@ process.stdout.write("\nConnect page\n");
 
 	check("relay reads on only when both are on", () => {
 		assert(h.el("pandotx-relay-pill").textContent === "On", `got ${h.el("pandotx-relay-pill").textContent}`);
+	});
+}
+
+/* ------------------------------------------------------------- soroban lamp */
+
+{
+	// pushtx not answering is the state that used to show a red Bitcoin node.
+	// Soroban must not claim health from it either: nothing proved its RPC is up.
+	const h = makeHarness({ onion: "abcdef123456.onion", pushtxDown: true });
+	h.run();
+	await h.settle();
+
+	check("Soroban reads unknown when pushtx did not answer", () => {
+		const lamp = h.el("svc-soroban");
+		assert(lamp.className === "dot dot--warn", `got ${lamp.className}`);
+		assert(lamp.getAttribute("aria-label") === "Unknown", `got ${lamp.getAttribute("aria-label")}`);
+	});
+}
+
+{
+	// With push off nothing in Dojo waits on Soroban, so pushtx answering proves
+	// nothing about it -- even though everything else on the page is healthy.
+	const h = makeHarness({ onion: "abcdef123456.onion", pandoTxPush: "off" });
+	h.run();
+	await h.settle();
+
+	check("with push off the lamp reports configuration, not health", () => {
+		const lamp = h.el("svc-soroban");
+		assert(lamp.className === "dot dot--idle", `got ${lamp.className}`);
+		assert(lamp.getAttribute("aria-label") === "Enabled", `got ${lamp.getAttribute("aria-label")}`);
+		// The rest of the page is fine, so this is not a general failure state.
+		assert(h.el("svc-bitcoind").getAttribute("aria-label") === "Healthy", "the node should still be healthy");
+	});
+}
+
+/* --------------------------------------------------------------- stylesheet */
+
+/* An entire section of style.css -- .wallets, .wcard, .pill -- was deleted by a
+ * careless index-to-index replacement and shipped. The page still rendered, so
+ * nothing here failed: every id existed, every handler ran, and the wallet
+ * cards were simply unstyled text on a live device.
+ *
+ * Markup and script are already pinned to each other by the element stub. This
+ * pins the stylesheet to the markup the same way: every class the page uses
+ * must have a rule somewhere, and classes app.js assigns at runtime count too,
+ * since those never appear in index.html.
+ */
+{
+	const classes = new Set();
+	for (const [, attr] of html.matchAll(/\bclass="([^"]+)"/g)) {
+		for (const name of attr.split(/\s+/)) if (name) classes.add(name);
+	}
+	// Runtime classes: node.className = "pill pill--ok", "dot dot--warn", and so on.
+	for (const [, value] of appSource.matchAll(/className\s*=\s*"([^"]*)"/g)) {
+		for (const name of value.split(/\s+/)) if (name) classes.add(name);
+	}
+	for (const [, value] of appSource.matchAll(/className\s*=\s*"([^"]*)"\s*\+/g)) {
+		for (const name of value.split(/\s+/)) if (name) classes.add(name);
+	}
+	// Built by node(tag, className, ...) in the wallet card builder.
+	for (const [, value] of appSource.matchAll(/node\("[a-z]+",\s*"([^"]+)"/g)) {
+		for (const name of value.split(/\s+/)) if (name) classes.add(name);
+	}
+
+	// Utility and state classes that are deliberately styled elsewhere or not at
+	// all; listing them is cheaper than a rule that does nothing.
+	const exempt = new Set(["visually-hidden"]);
+
+	const missing = [...classes]
+		.filter((name) => !exempt.has(name))
+		.filter((name) => !cssSource.includes(`.${name}`))
+		.sort();
+
+	check("every class the page uses has a rule in style.css", () => {
+		assert(missing.length === 0, `no rule for: ${missing.join(", ")}`);
+	});
+
+	// The sections most recently lost, named so the failure says what broke.
+	check("the wallet card rules are present", () => {
+		for (const sel of [".wallets", ".wcard", ".wcard--add", ".pill", ".pill--ok", ".pill--off"]) {
+			assert(cssSource.includes(sel), `style.css has no ${sel}`);
+		}
+	});
+
+	check("style.css braces balance", () => {
+		const open = (cssSource.match(/\{/g) || []).length;
+		const close = (cssSource.match(/\}/g) || []).length;
+		assert(open === close, `${open} open vs ${close} close`);
 	});
 }
 

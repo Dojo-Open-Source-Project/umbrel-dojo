@@ -67,8 +67,10 @@
         <li><span class="dot" id="svc-indexer" role="img" aria-label="Checking"></span>Electrum server</li>
         <li><span class="dot" id="svc-tracker" role="img" aria-label="Checking"></span>Tracker</li>
         <li><span class="dot" id="svc-tor" role="img" aria-label="Checking"></span>Tor</li>
-        <!-- Soroban reports configuration, never health: /support/services only
-             says whether an RPC is configured. Static, and app.js never touches it. -->
+        <!-- Soroban's lamp is driven only while PandoTx push is on, because that
+             is the one case where something in Dojo actually waits on its RPC
+             (pushtx/index.js). With push off it falls back to reporting
+             configuration rather than claiming health it cannot see. -->
         <li><span class="dot dot--idle" id="svc-soroban" role="img" aria-label="Enabled"></span>Soroban</li>
       </ul>
     </section>
@@ -310,7 +312,7 @@
             <option value="365">Expires in 1 year</option>
             <option value="90">Expires in 90 days</option>
           </select>
-          <button class="btn btn--primary" type="button" id="pair-create">Create code</button>
+          <button class="btn" type="button" id="pair-create">Create code</button>
         </div>
         <p class="muted small">
           An expiry is a backstop, not a schedule: a key that lapses stops a

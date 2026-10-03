@@ -222,12 +222,12 @@ await withStack({ fees: () => READY }, async ({ widget }) => {
 		assert(umbreldParseRefresh(body) === 30_000, `got ${JSON.stringify(body.refresh)}`);
 	});
 
-	check("it shows Low, Medium and High in that order", () => {
+	check("it shows the three levels with their probabilities, in order", () => {
 		assert(body.items.length === 3, `got ${body.items.length} items`);
 		// three-stats renders subtext above text, so the level is the subtext,
 		// and it has no title field at all.
 		const levels = body.items.map((item) => item.subtext);
-		assert(levels.join(" | ") === "Low | Medium | High", `got ${levels.join(" | ")}`);
+		assert(levels.join(" | ") === "Low 10% | Med 50% | High 99%", `got ${levels.join(" | ")}`);
 		assert(body.items.every((item) => item.title === undefined), "three-stats has no title");
 	});
 
@@ -279,7 +279,7 @@ await withStack({ fees: () => 503 }, async ({ widget }) => {
 			`got ${body.items.map((i) => i.text).join(",")}`
 		);
 		assert(
-			body.items.map((item) => item.subtext).join(" | ") === "Low | Medium | High",
+			body.items.map((item) => item.subtext).join(" | ") === "Low 10% | Med 50% | High 99%",
 			`the levels stay labelled; got ${body.items.map((i) => i.subtext).join(" | ")}`
 		);
 		assert(!/\d/.test(body.items.map((i) => i.text).join("")), "a digit got through");
@@ -372,6 +372,22 @@ await withStack({ fees: () => READY }, async ({ widget }) => {
 		assert(other.status === 404, `/widgets/anything gave ${other.status}`);
 	});
 });
+
+{
+	const h = await startDojo({ fees: () => READY });
+	const w = await startWidget(h.port);
+	const body = JSON.parse((await w.get("/widgets/fees")).text);
+	check("the labels stay short enough not to truncate", () => {
+		// three-stats applies `truncate` to both lines and gives each item about
+		// a third of a small widget. There is no way to measure that from here,
+		// so the guard is a length ceiling rather than a rendered check.
+		body.items.forEach((item) => {
+			assert(item.subtext.length <= 9, `subtext too long: ${item.subtext}`);
+			assert(item.text.length <= 12, `text too long: ${item.text}`);
+		});
+	});
+	w.stop(); h.stop();
+}
 
 process.stdout.write(`\n${passed} passed, ${failures.length} failed\n\n`);
 process.exit(failures.length === 0 ? 0 : 1);

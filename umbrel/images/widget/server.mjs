@@ -43,14 +43,14 @@ const REQUEST_TIMEOUT_MS = 8_000;
 // app's own page shows the same three -- someone comparing the two should never
 // see different answers to the same question.
 //
-// The percentages are deliberately not in these labels. three-stats truncates
-// both of its lines, and three items across a widget leaves roughly a third of
-// its width each, so "Medium 50%" would silently clip. The page carries the
-// percentages, where there is room for them.
+// The percentage rides with the level so the widget reads the way the boxes in
+// the app do. three-stats truncates both of its lines and three items across
+// leave roughly a third of its width each, so these are kept as short as they
+// can be while still carrying the number: no "chance", no spacing dot.
 const TARGETS = [
-	["0.1", "Low"],
-	["0.5", "Medium"],
-	["0.99", "High"],
+	["0.1", "Low 10%"],
+	["0.5", "Med 50%"],
+	["0.99", "High 99%"],
 ];
 
 /** @type {string | null} */

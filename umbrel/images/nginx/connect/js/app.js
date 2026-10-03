@@ -132,6 +132,24 @@
 
 		svc("tor", state.onion ? "ok" : "warn", state.onion ? "Healthy" : "Starting");
 
+		/* Soroban, where its health can honestly be derived.
+		 *
+		 * pushtx/index.js:30-34 awaits sorobanUtil.waitForSorobanRpcApi() before
+		 * httpServer.start(), but only when PandoTx push is active. So while push
+		 * is on, pushtx answering at all proves Soroban's RPC is up -- that is a
+		 * real signal, not an inference about the container.
+		 *
+		 * With push off nothing waits on Soroban, so pushtx answering proves
+		 * nothing about it, and the lamp goes back to reporting configuration:
+		 * enabled, health unknown. /support/services only ever says whether the
+		 * RPC is configured, which is why this is the only route to a green lamp.
+		 */
+		if (on(conf.pandoTxPush)) {
+			svc("soroban", figures ? "ok" : "warn", figures ? "Healthy" : "Unknown");
+		} else {
+			svc("soroban", "idle", "Enabled");
+		}
+
 		el("tor-alert").hidden = !!state.onion;
 
 		renderChain(accounts, indexedBlock, nodeBlock);

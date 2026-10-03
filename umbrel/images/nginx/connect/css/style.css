@@ -392,6 +392,41 @@ p { margin: 0 0 12px; }
   .fees .unit { font-size: 0.64rem; }
 }
 
+/* Wallets ----------------------------------------------------------------- */
+/* align-items so a short card sizes to its own content rather than
+   stretching to match the tallest in its row. */
+.wallets {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
+  gap: 11px; align-items: start;
+}
+.wcard {
+  background: var(--sunk); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px;
+  display: flex; flex-direction: column; min-width: 0;
+  color: inherit; font: inherit; text-align: left;
+}
+.wcard .top { display: flex; align-items: flex-start; gap: 6px; }
+.wcard .nm { font-weight: 600; font-size: 1rem; letter-spacing: -0.015em; min-width: 0; word-break: break-word; }
+.wcard .sub { font-size: 0.79rem; color: var(--text-muted); margin-top: 8px; }
+.wcard .note { margin-top: 6px; }
+.wcard--add {
+  align-items: center; justify-content: center;
+  border-style: dashed; cursor: pointer; gap: 7px;
+  min-height: 126px; background: transparent;
+}
+/* Likewise: gradient text this small disappears into a dark card. */
+.wcard--add .plus { font-size: 1.45rem; line-height: 1; color: var(--accent); }
+.wcard--add .lbl { font-weight: 600; font-size: 0.87rem; color: var(--accent); }
+
+.pill {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px;
+  display: inline-block; margin-top: 8px; align-self: flex-start;
+}
+.pill--ok { background: var(--ok-bg); color: var(--ok); }
+.pill--warn { background: var(--pending-bg); color: var(--pending); }
+.pill--off { background: var(--border); color: var(--text-faint); }
+
 /* Per-wallet keys --------------------------------------------------------- */
 /* display: contents puts each key row into the .wallets grid alongside the two
    cards that bracket it, rather than giving the whole list one cell. */
