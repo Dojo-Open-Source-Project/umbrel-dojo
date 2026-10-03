@@ -128,13 +128,11 @@
         <div class="wcard">
           <div class="top"><span class="nm">Default key</span></div>
           <span class="pill pill--ok">Authorized</span>
-          <div class="sub">
-            Shared by every wallet paired before per-wallet keys existed.
-          </div>
-          <div class="note muted small">
-            Derived by Umbrel, so it cannot be revoked here. Pair new wallets
-            with their own key instead.
-          </div>
+          <!-- Same shape as the minted keys: name, state, one meta line. It has
+               no created date to report -- Umbrel derives it, there is no row in
+               api_keys -- and it genuinely never lapses, which is the honest
+               thing to put where the others show their expiry. -->
+          <div class="meta">Never expires</div>
           <div class="wcard-acts">
             <!-- Kept deliberately. If a minted key turns out not to work in some
                  wallet build, this is the known-good path back. -->
