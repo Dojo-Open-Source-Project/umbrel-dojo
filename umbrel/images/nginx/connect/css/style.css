@@ -83,7 +83,7 @@ body {
   padding: 28px var(--gutter);
   /* Clear the fixed tab bar: its own height, the safe-area inset on a
      phone with a home indicator, and the breathing room the page had. */
-  padding-bottom: calc(64px + 42px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(46px + 46px + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   color: var(--text);
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
@@ -270,36 +270,41 @@ p { margin: 0 0 12px; }
    display rule in a later block would otherwise win over the UA sheet. */
 .panel-tab[hidden] { display: none; }
 
+/* A floating capsule rather than an edge-to-edge bar, matching umbrelOS's own
+   apps: rounded ends, clear of the content, and only the current tab carries
+   its icon. That last part is what makes it read as one control with a
+   position in it rather than three equal buttons. */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: saturate(150%) blur(12px);
-  border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-/* Fall back to an opaque bar where color-mix or backdrop-filter is missing;
-   a translucent bar with neither reads as unstyled. */
-@supports not (backdrop-filter: blur(1px)) {
-  .tabbar { background: var(--surface); }
+  position: fixed; z-index: 20;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
 .tabbar [role="tablist"] {
-  max-width: 1080px; margin: 0 auto;
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: flex; gap: 2px; padding: 5px;
+  border: 1px solid var(--border); border-radius: 999px;
+  /* Opaque first: where color-mix is unsupported the declaration is dropped,
+     and a capsule with no background at all reads as unstyled. */
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.16);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .tabbar [role="tablist"] { background: var(--surface); }
 }
 .tabbar [role="tab"] {
   appearance: none; background: none; border: 0; cursor: pointer;
-  font: 600 0.74rem inherit; font-family: inherit;
-  color: var(--text-muted);
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 11px 4px calc(11px + 0px);
-  min-height: 64px; justify-content: center;
-  border-top: 2px solid transparent; margin-top: -1px;
+  font: 600 0.84rem inherit; font-family: inherit;
+  color: var(--text-muted); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 17px; border-radius: 999px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
-.tabbar [role="tab"] svg { width: 21px; height: 21px; }
-.tabbar [role="tab"][aria-selected="true"] {
-  color: var(--accent); border-top-color: var(--accent);
-}
-.tabbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tabbar [role="tab"] svg { width: 17px; height: 17px; flex: none; }
+.tabbar [role="tab"][aria-selected="false"] svg { display: none; }
+.tabbar [role="tab"][aria-selected="true"] { background: var(--sunk); color: var(--text); }
+.tabbar [role="tab"][aria-selected="true"] svg { color: var(--accent); }
+.tabbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Next block fees --------------------------------------------------------- */
 /* Four tiles, sharing the wallet cards' surface so the page reads as one set
