@@ -30,6 +30,9 @@ NGINX_IP="$(sed -n 's/.*APP_DOJO_NGINX_IP="\([0-9.]*\)".*/\1/p' "${PACKAGE_DIR}/
 
 CONNECT_URL="http://127.0.0.1:${PROXY_PORT}"
 API_URL="http://127.0.0.1:${API_PORT}"
+# compose-from-package.py publishes the widget endpoint 100 above the manifest
+# port; on Umbrel it is not published at all.
+WIDGET_URL="http://127.0.0.1:$((PROXY_PORT + 100))"
 
 pass=0
 fail=0
@@ -152,7 +155,7 @@ step "Waiting for Dojo to come up (up to 5 minutes)"
 wait_for_ready || echo "  timed out; checks below will show what came up"
 
 step "Containers"
-for service in db node soroban nginx tor bitcoind; do
+for service in db node soroban nginx widget tor bitcoind; do
 	state="$(docker inspect -f '{{.State.Status}}' "dojo_${service}_1" 2>/dev/null || echo missing)"
 	if [ "${state}" = "running" ]; then ok "${service} is running"; else bad "${service} is ${state}"; fi
 done
@@ -209,6 +212,22 @@ else
 fi
 
 step "Soroban"
+step "Widget endpoint (published on ${WIDGET_URL})"
+# The feerates themselves cannot be checked here: Dojo's estimator reports
+# nothing until bitcoind's mempool is loaded, and regtest has no mempool worth
+# loading, so /fees/estimator answers 503 throughout. What is checkable -- and
+# what would actually break on a device -- is that the envelope umbreld parses
+# is well formed and that the not-ready state says so instead of inventing a
+# number.
+check "serves the four-stats envelope" \
+	sh -c "curl -sf '${WIDGET_URL}/widgets/fees' | grep -q '\"type\":\"four-stats\"'"
+check "reports four stats" \
+	sh -c "test \"\$(curl -sf '${WIDGET_URL}/widgets/fees' | grep -o 'sat/vB\\|starting' | wc -l)\" = 4"
+check "says it does not know rather than guessing a feerate" \
+	sh -c "curl -sf '${WIDGET_URL}/widgets/fees' | grep -q '\"subtext\":\"starting\"'"
+check "exposes nothing but the widget endpoint" \
+	sh -c "test \"\$(curl -s -o /dev/null -w '%{http_code}' '${WIDGET_URL}/')\" = 404"
+
 check "Tor bootstrapped inside the soroban container" \
 	sh -c "docker logs ${APP_ID}_soroban_1 2>&1 | grep -q 'Tor initialization complete'"
 check "soroban RPC is up" \
@@ -249,6 +268,7 @@ Open in a browser:
   Connect UI          ${CONNECT_URL}
   Dojo API            ${API_URL}
   Maintenance Tool    ${API_URL}/admin/
+  Fee widget          ${WIDGET_URL}/widgets/fees
 
 Admin key (for the Maintenance Tool):
   ${ADMIN_KEY}

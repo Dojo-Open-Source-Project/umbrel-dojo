@@ -43,7 +43,7 @@ Dojo, maintained by the Dojo Open Source Project.
 ## Images
 
 Upstream publishes no images — its compose file sets `pull_policy: never` and
-builds everything locally via `dojo.sh`. The four images here are built from a
+builds everything locally via `dojo.sh`. The five images here are built from a
 pinned vendored copy of upstream `v1.29.3` at
 https://github.com/linkinparkrulz/umbrel-dojo, which documents every delta
 against that tag in `UMBREL.md`, and are published to GHCR as multi-arch
@@ -55,6 +55,7 @@ manifest lists:
 | `db` | `ghcr.io/linkinparkrulz/dojo-db` | upstream `docker/my-dojo/mysql/Dockerfile` |
 | `soroban` | `ghcr.io/linkinparkrulz/dojo-soroban` | upstream `docker/my-dojo/soroban/Dockerfile` |
 | `nginx` | `ghcr.io/linkinparkrulz/dojo-nginx` | this packaging repo |
+| `widget` | `ghcr.io/linkinparkrulz/dojo-widget` | this packaging repo |
 
 There are exactly two source deltas against upstream, both documented:
 

@@ -1,4 +1,4 @@
-# Builds the four images the Umbrel Dojo app runs and publishes them to GHCR
+# Builds the five images the Umbrel Dojo app runs and publishes them to GHCR
 # as multi-arch manifest lists.
 #
 # Umbrel requires every image to be publicly pullable and to support both
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [nodejs, db, soroban, nginx]
+        image: [nodejs, db, soroban, nginx, widget]
         platform:
           - { arch: amd64, runner: ubuntu-24.04 }
           - { arch: arm64, runner: ubuntu-24.04-arm }
@@ -86,6 +86,13 @@ jobs:
               version="${DOJO_VERSION_TAG}"
               dockerfile="./umbrel/images/nginx/Dockerfile"
               context="./umbrel/images/nginx"
+              build_args=""
+              ;;
+            widget)
+              repository="dojo-widget"
+              version="${DOJO_VERSION_TAG}"
+              dockerfile="./umbrel/images/widget/Dockerfile"
+              context="./umbrel/images/widget"
               build_args=""
               ;;
           esac
@@ -153,7 +160,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [nodejs, db, soroban, nginx]
+        image: [nodejs, db, soroban, nginx, widget]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -177,6 +184,7 @@ jobs:
             db)      repository="dojo-db";      version="${DOJO_DB_VERSION_TAG}" ;;
             soroban) repository="dojo-soroban"; version="${DOJO_SOROBAN_VERSION_TAG}" ;;
             nginx)   repository="dojo-nginx";   version="${DOJO_VERSION_TAG}" ;;
+            widget)  repository="dojo-widget";  version="${DOJO_VERSION_TAG}" ;;
           esac
 
           {

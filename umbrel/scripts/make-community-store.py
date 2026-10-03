@@ -91,8 +91,8 @@ def transform_compose(text):
     text, n = re.subn(
         r"\bdojo_(nginx|db|node|soroban)_1\b", rf"{APP_ID}_\1_1", text
     )
-    if n != 6:
-        raise SystemExit(f"compose: expected 6 container names, rewrote {n}")
+    if n != 7:
+        raise SystemExit(f"compose: expected 7 container names, rewrote {n}")
 
     # The Tor hidden-service directory is app-<app-id>-api. Two services mount
     # it: node (Dojo reads its own onion for auth47) and nginx (the Connect page

@@ -190,6 +190,26 @@ services:
         # Fixed so torrc can point the hidden service at it.
         ipv4_address: ${APP_DOJO_NGINX_IP}
 
+  widget:
+    # The home-screen widget: next-block fee estimates, reshaped from Dojo's
+    # own nextblock estimator (GET /fees/estimator). See
+    # umbrel/images/widget/server.mjs.
+    #
+    # Deliberately no `ports:` -- umbrelOS fetches a widget endpoint itself,
+    # over the app network and without going through app_proxy, so 3000 must
+    # not be reachable from the host.
+    image: ghcr.io/linkinparkrulz/dojo-widget:1.29.3-umbrel11@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    init: true
+    restart: on-failure
+    user: "1000:1000"
+    depends_on:
+      - node
+    environment:
+      NODE_HOST: dojo_node_1
+      # The API key, not the admin key: /fees/estimator only needs
+      # checkAuthentication, so the admin key never enters this container.
+      NODE_API_KEY: ${APP_DOJO_NODE_API_KEY}
+
   tor:
     image: ghcr.io/getumbrel/tor:0.4.9.11@sha256:e382b8629c0dfef6ceb396b062622d4e4e955b19d6f16b883fd2c0723ad5671a
     user: "1000:1000"

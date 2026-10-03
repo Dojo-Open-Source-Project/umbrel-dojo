@@ -43,6 +43,24 @@ something has been looked up.
 The element stub only answers for ids that appear in `connect/index.html` and
 throws for anything else, so markup and script cannot drift apart silently.
 
+## Widget server tests
+
+```sh
+node umbrel/testing/widget-server-test.mjs
+```
+
+`umbrel/images/widget/server.mjs` is run as a real child process against a stub
+standing in for Dojo's accounts API, so the JSON umbreld will actually parse is
+asserted over HTTP rather than by reading the source. The cases are the ones a
+device hits: an estimator that is not ready (Dojo answers 503 until bitcoind's
+mempool is loaded), a Dojo that is not up yet, and the JWT expiring out from
+under a long-lived process. In the first two the widget must say it does not
+know rather than show a stale or invented feerate.
+
+No Docker and no Bitcoin node. The real figures only exist against a synced
+mainnet mempool, so the smoke test can only ever exercise the not-ready
+path.
+
 ## What it checks
 
 - every container comes up as `1000:1000`, the UID umbrelOS runs apps as
@@ -54,6 +72,8 @@ throws for anything else, so markup and script cannot drift apart silently.
   endpoints answer
 - the Tor hidden service is created from `torrc.template`
 - Soroban bootstraps Tor and writes its peerstore into app data
+- the widget endpoint serves a well-formed four-stats envelope, and says
+  "starting" rather than inventing a feerate while the estimator has none
 - the tracker indexes a mined regtest block over ZMQ
 - everything comes back after a restart, with the database intact
 

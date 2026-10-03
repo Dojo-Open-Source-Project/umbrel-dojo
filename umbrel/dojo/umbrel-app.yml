@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.6"
+version: "1.29.3-patch.7"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,26 +37,20 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Your wallet now gets a block explorer straight away. Opening a transaction
-  used to fall back to whatever your wallet ships with, because Dojo can only
-  hand over your own Mempool once Tor is switched on in umbrelOS and Dojo
-  restarted — and Tor is off by default. Until you do both, pairing now points
-  at mempool.space over Tor instead. That is private from your network, though
-  mempool.space still sees which transactions you look at, so the pairing
-  screen says which of the two you are on and how to move to your own.
+  Dojo now has a home-screen widget showing what it costs to get into the next
+  block: four feerates, each the rate at which a transaction has a 50%, 90%,
+  99% or 99.9% chance of being confirmed in the very next block.
 
 
-  Pairing is now a pop-out rather than a panel further down the page, and the
-  payload behind it can be copied in one click for wallets that ask you to
-  paste it rather than scan.
+  These are not generic fee bands. They come from the nextblock estimator —
+  the algorithm behind nextblock.is — which Dojo has been running against your
+  own node all along. The figures are worked out from your node's own view of
+  the mempool, so you are not asking anyone else what the fees are.
 
 
-  Also stops the Bitcoin node indicator going red while the app is still
-  starting. Dojo's broadcast service waits for the Soroban relay before it
-  answers, and Soroban builds its own Tor connection first, so for about the
-  first half minute the page genuinely cannot see your node. It says "unknown"
-  and shows amber for that now, keeping red for a node that really is
-  unreachable.
+  Add it from the widget picker on your Umbrel home screen. While Dojo is
+  starting, or before your node has finished loading its mempool, the widget
+  says so rather than showing a stale or invented number.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
@@ -69,6 +63,34 @@ support: https://github.com/Dojo-Open-Source-Project/samourai-dojo/issues
 port: 3023
 gallery: []
 path: ""
+
+widgets:
+  - id: "fees"
+    type: "four-stats"
+    # Dojo's estimator recomputes every 20 seconds (estimator/index.js sets
+    # refresh: 20), so polling faster than this only repeats an answer.
+    refresh: "30s"
+    # The compose service name, which umbrelOS resolves to this app's own
+    # container -- so it is correct under any app id. Port 3000 is not
+    # published to the host.
+    endpoint: "widget:3000/widgets/fees"
+    link: ""
+    example:
+      type: "four-stats"
+      link: ""
+      items:
+        - title: "50% chance"
+          text: "3"
+          subtext: "sat/vB"
+        - title: "90% chance"
+          text: "5"
+          subtext: "sat/vB"
+        - title: "99% chance"
+          text: "8"
+          subtext: "sat/vB"
+        - title: "99.9% chance"
+          text: "12"
+          subtext: "sat/vB"
 
 defaultUsername: ""
 defaultPassword: ""

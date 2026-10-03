@@ -44,6 +44,14 @@ def main(out_path: str, data_dir: str, package_dir: str = None) -> None:
     # Reach the app from the host.
     services["nginx"].setdefault("ports", []).append(f"{proxy_port}:8081")
 
+    # The widget endpoint. umbrelOS reaches it over the app network, so the
+    # package publishes nothing; the test has no app network to sit on, so it
+    # publishes one well clear of the manifest port and the API port beside it
+    # -- and clear of the community-store variant's pair too, which sit two
+    # above the official one's.
+    widget_port = proxy_port + 100
+    services["widget"].setdefault("ports", []).append(f"{widget_port}:3000")
+
     services["bitcoind"] = {
         "image": "bitcoin/bitcoin:29.0",
         "container_name": f"{app_id}_bitcoind_1",

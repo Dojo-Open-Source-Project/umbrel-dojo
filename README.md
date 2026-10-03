@@ -17,7 +17,7 @@ images, so this repository builds and publishes them.
 
 ## Images
 
-All four are published to GHCR as multi-arch manifest lists (`linux/amd64` + `linux/arm64`):
+All five are published to GHCR as multi-arch manifest lists (`linux/amd64` + `linux/arm64`):
 
 | Image | Built from | Version source |
 |---|---|---|
@@ -25,6 +25,7 @@ All four are published to GHCR as multi-arch manifest lists (`linux/amd64` + `li
 | `ghcr.io/linkinparkrulz/dojo-db` | `docker/my-dojo/mysql/Dockerfile` (upstream, one permission delta) | `DOJO_DB_VERSION_TAG` |
 | `ghcr.io/linkinparkrulz/dojo-soroban` | `docker/my-dojo/soroban/Dockerfile` (upstream) | `DOJO_SOROBAN_VERSION_TAG` |
 | `ghcr.io/linkinparkrulz/dojo-nginx` | [`umbrel/images/nginx/`](./umbrel/images/nginx) (ours) | `DOJO_VERSION_TAG` |
+| `ghcr.io/linkinparkrulz/dojo-widget` | [`umbrel/images/widget/`](./umbrel/images/widget) (ours) | `DOJO_VERSION_TAG` |
 
 Versions come from the vendored `docker/my-dojo/.env`, so they cannot drift from the source being built.
 
