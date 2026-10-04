@@ -5,7 +5,7 @@ services:
       APP_PORT: 8081
 
   db:
-    image: ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel15@sha256:dfb7ff2d241fe4e5c9cacfea5690b763a521773eef5a9951f5c54169744c3c38
+    image: ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel16@sha256:2af51359918037a04b4011f1eb0afe8d6e0c3c49d82f91683beda6764f2a9cb2
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -27,7 +27,7 @@ services:
       retries: 6
 
   node:
-    image: ghcr.io/linkinparkrulz/dojo-nodejs:1.29.3-umbrel15@sha256:afdf75c7ff699f096adf388815dcce2aad66e85b144e3e97f8973c39cc802984
+    image: ghcr.io/linkinparkrulz/dojo-nodejs:1.29.3-umbrel16@sha256:66cfc27bf66030d1caff7dd3492e9808fce7c39223205832cbee5536feae6017
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -149,7 +149,7 @@ services:
       NODE_URL_ESPLORA_API: https://blockstream.info/testnet
 
   soroban:
-    image: ghcr.io/linkinparkrulz/dojo-soroban:0.4.2-umbrel15@sha256:4a2122c354557b70857b9164104fdeb5b0af111e0626e6119cc323280f86b106
+    image: ghcr.io/linkinparkrulz/dojo-soroban:0.4.2-umbrel16@sha256:92367ac40b2a871bc5060f7bfd633f597f62bc702e8abc3d6fefc42e7b01ea57
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -166,7 +166,7 @@ services:
       - ${APP_DATA_DIR}/data/soroban:/home/soroban/data
 
   nginx:
-    image: ghcr.io/linkinparkrulz/dojo-nginx:1.29.3-umbrel15@sha256:612004b7926b52b77f9fa38daf5126c1b8b633c61be057db5797bdf239eec2f2
+    image: ghcr.io/linkinparkrulz/dojo-nginx:1.29.3-umbrel16@sha256:353f7e4779f302f06a0c41c0b4596e3a8af1e6b6e3b4dffd08c14bfd3998e0d0
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -217,7 +217,7 @@ services:
     # Deliberately no `ports:` -- umbrelOS fetches a widget endpoint itself,
     # over the app network and without going through app_proxy, so 3000 must
     # not be reachable from the host.
-    image: ghcr.io/linkinparkrulz/dojo-widget:1.29.3-umbrel15@sha256:6a09f82c2c8481331248e1c9d44bc863ecb1639ea0fa5cc7e0edb90c0afe6f5b
+    image: ghcr.io/linkinparkrulz/dojo-widget:1.29.3-umbrel16@sha256:4679cbcc4a476177061fc5b0230e70d4a31ab57c047351360b5bd80c14acc10f
     init: true
     restart: on-failure
     user: "1000:1000"
