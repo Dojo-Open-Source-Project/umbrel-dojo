@@ -53,15 +53,26 @@ platforms are printed to the run summary:
 ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1@sha256:...
 ```
 
-Paste those four references into `umbrel/dojo/docker-compose.yml`, replacing the placeholder digests,
-then verify:
+Then, in order:
 
-```sh
-docker buildx imagetools inspect ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1
-```
+1. **Pin all five** references in `umbrel/dojo/docker-compose.yml`. Use the index (manifest-list)
+   digest, never a per-architecture one: Umbrel's linter rejects those. Resolving each tag from the
+   registry is the stronger check, since it shows what the tag really points at:
 
-Both `linux/amd64` and `linux/arm64` must be listed, and the package must be public in the repository's
-package settings — Umbrel pulls without credentials.
+   ```sh
+   docker buildx imagetools inspect ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1
+   ```
+
+   Both `linux/amd64` and `linux/arm64` must be listed, and each package must be public in the
+   repository's package settings, because Umbrel pulls without credentials.
+2. **Bump `version:` in `umbrel/dojo/umbrel-app.yml`** (`1.29.3-patch.N`) and write `releaseNotes:`.
+   umbrelOS decides whether an update exists by comparing the version string alone. A new image digest
+   without a new version never reaches an installed app. The linter refuses a version bump with blank
+   notes.
+3. **Lint with `--check-images`** (below), which pulls every digest anonymously.
+4. **Regenerate the community store** with `umbrel/scripts/make-community-store.py <your store clone>`,
+   check that `git diff --stat` lists the compose file and the manifest, and push it. See
+   [`umbrel/store/README.md`](./umbrel/store/README.md).
 
 > Native `ubuntu-24.04-arm` runners are free for public repositories. On a private repository the arm64
 > matrix leg will not schedule; fall back to `docker/setup-qemu-action` and a single `platforms:
@@ -92,12 +103,14 @@ docker build -f docker/my-dojo/mysql/Dockerfile -t dojo-db:local .
 |---|---|
 | `node` | Dojo itself: accounts API, PushTx, tracker, fee estimator |
 | `db` | MariaDB, holding the address and transaction index |
-| `nginx` | The Dojo API on 8080 (Tor + LAN) and the Connect UI on 8081 (Umbrel's app proxy) |
+| `nginx` | The Dojo API on 8080 (Tor + LAN) and the app's page on 8081 (behind Umbrel's app proxy) |
 | `soroban` | Soroban P2P node, so PandoTx can relay outgoing transactions through someone else's node |
+| `widget` | Serves the home-screen fee widget, reshaping Dojo's own next-block estimates for umbrelOS |
 | `tor` | Hidden service for the Dojo API |
 
-Bitcoin Core and the Electrum server are **not** bundled: the app depends on Umbrel's Bitcoin Node and
-Electrs apps, and Fulcrum can stand in for Electrs since it declares `implements: electrs`.
+Bitcoin Core, the Electrum server and the block explorer are **not** bundled. The app depends on
+Umbrel's Bitcoin Node, Electrs and Mempool apps. Fulcrum can stand in for Electrs, since it declares
+`implements: electrs`. Mempool is the explorer that paired wallets are pointed at.
 
 Whirlpool is not included. Its coordinator was shut down in 2024.
 

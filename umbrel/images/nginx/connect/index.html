@@ -32,7 +32,7 @@
       </button>
     </header>
 
-    <section class="panel-tab" id="panel-home" role="tabpanel" aria-labelledby="tab-home">
+    <section id="panel-home" role="tabpanel" aria-labelledby="tab-home">
     <!-- Chain state and services --------------------------------------->
     <section class="band" aria-labelledby="band-heading">
       <h2 id="band-heading" class="visually-hidden">Status</h2>
@@ -80,36 +80,36 @@
       once it lands, usually within a minute of a first start.
     </p>
 
-      <!-- NextBlock ------------------------------------------------------->
-      <!-- Dojo has run this estimator all along: estimator/index.js drives
-           @dojo-tools/next-block-estimator, the algorithm behind nextblock.is,
-           against your own node. The same four rates the home-screen widget
-           shows, so the two can never disagree. -->
-      <!-- No .card wrapper: with the heading gone there is nothing for it to
-           frame, and a bordered panel around three raised boxes is a box inside
-           a box. These sit on the page like the band above them. -->
-      <section class="fees-band">
-        <!-- No heading: "Low / 10% / 3 sat/vB" explains itself, and a card
-             title above three labelled boxes was saying it twice. Still a <dl>
-             -- these are term/value pairs, and dt/dd are only valid inside one.
-             Levels follow nextblock.is, which is where these estimates come
-             from, so the vocabulary matches what people already know. -->
-        <dl class="fees" id="fees">
-          <div class="fee">
-            <dt><b>Low</b> 10%</dt>
-            <dd><span id="fee-low">&mdash;</span> <span class="unit">sat/vB</span></dd>
-          </div>
-          <div class="fee">
-            <dt><b>Medium</b> 50%</dt>
-            <dd><span id="fee-med">&mdash;</span> <span class="unit">sat/vB</span></dd>
-          </div>
-          <div class="fee">
-            <dt><b>High</b> 99%</dt>
-            <dd><span id="fee-high">&mdash;</span> <span class="unit">sat/vB</span></dd>
-          </div>
-        </dl>
-        <p class="muted small" id="fees-note"></p>
-      </section>
+    <!-- NextBlock ------------------------------------------------------->
+    <!-- Dojo has run this estimator all along: estimator/index.js drives
+         @dojo-tools/next-block-estimator, the algorithm behind nextblock.is,
+         against your own node. The same four rates the home-screen widget
+         shows, so the two can never disagree. -->
+    <!-- No .card wrapper: with the heading gone there is nothing for it to
+         frame, and a bordered panel around three raised boxes is a box inside
+         a box. These sit on the page like the band above them. -->
+    <section class="fees-band">
+      <!-- No heading: "Low / 10% / 3 sat/vB" explains itself, and a card
+           title above three labelled boxes was saying it twice. Still a <dl>
+           -- these are term/value pairs, and dt/dd are only valid inside one.
+           Levels follow nextblock.is, which is where these estimates come
+           from, so the vocabulary matches what people already know. -->
+      <dl class="fees" id="fees">
+        <div class="fee">
+          <dt><b>Low</b> 10%</dt>
+          <dd><span id="fee-low">&mdash;</span> <span class="unit">sat/vB</span></dd>
+        </div>
+        <div class="fee">
+          <dt><b>Medium</b> 50%</dt>
+          <dd><span id="fee-med">&mdash;</span> <span class="unit">sat/vB</span></dd>
+        </div>
+        <div class="fee">
+          <dt><b>High</b> 99%</dt>
+          <dd><span id="fee-high">&mdash;</span> <span class="unit">sat/vB</span></dd>
+        </div>
+      </dl>
+      <p class="muted small" id="fees-note"></p>
+    </section>
 
     <!-- Paired wallets --------------------------------------------------->
     <section class="card">
@@ -154,7 +154,7 @@
     </section>
     </section>
 
-    <section class="panel-tab" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+    <section id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
     <!-- Look up ---------------------------------------------------------->
     <section class="card">
       <h2><span class="rule" aria-hidden="true"></span>Look up a wallet or address</h2>
@@ -187,102 +187,133 @@
       </div>
     </section>
 
-      <!-- Rescan ----------------------------------------------------------->
-      <section class="card">
-        <h2><span class="rule" aria-hidden="true"></span>Rescan a wallet or address</h2>
-            <p class="muted">
-              Rescanning re-reads history from your Electrum server and Bitcoin
-              node. It does not move funds and cannot lose data, but a large wallet
-              can take several minutes.
-            </p>
+    <!-- Rescan ------------------------------------------------------->
+    <section class="card">
+      <h2><span class="rule" aria-hidden="true"></span>Rescan a wallet or address</h2>
+      <p class="muted">
+        Rescanning re-reads history from your Electrum server and Bitcoin node.
+        It does not move funds and cannot lose data, but a large wallet can take
+        several minutes.
+      </p>
 
-            <label class="field-label" for="rescan-target">Wallet or address to rescan</label>
-            <div class="copy-row">
-              <input id="rescan-target" type="text" spellcheck="false" autocapitalize="off"
-                     autocomplete="off" placeholder="xpub&hellip; or a single address">
-            </div>
-            <div class="field-pair">
-              <div>
-                <label class="field-label" for="rescan-gap">Address gap limit</label>
-                <input id="rescan-gap" type="number" min="0" max="10000" step="10" value="100">
-              </div>
-              <div>
-                <label class="field-label" for="rescan-start">Start from index</label>
-                <input id="rescan-start" type="number" min="0" step="1" value="0">
-              </div>
-              <div class="field-pair-action">
-                <button class="btn btn--ghost" id="rescan-run">Start rescan</button>
-              </div>
-            </div>
-            <p class="notice" id="rescan-note" hidden></p>
+      <label class="field-label" for="rescan-target">Wallet or address to rescan</label>
+      <div class="copy-row">
+        <input id="rescan-target" type="text" spellcheck="false" autocapitalize="off"
+               autocomplete="off" placeholder="xpub&hellip; or a single address">
+      </div>
+      <div class="field-pair">
+        <!-- Lookahead only means anything for an extended key: the address
+             route takes no arguments. Shown once the input looks like one. -->
+        <div id="rescan-gap-field" hidden>
+          <label class="field-label" for="rescan-gap">Address gap limit</label>
+          <input id="rescan-gap" type="number" min="0" max="10000" step="10" value="100">
+        </div>
+        <div id="rescan-start-field" hidden>
+          <label class="field-label" for="rescan-start">Start from index</label>
+          <input id="rescan-start" type="number" min="0" step="1" value="0">
+        </div>
+        <div class="field-pair-action">
+          <button class="btn btn--ghost" id="rescan-run">Start rescan</button>
+        </div>
+      </div>
+      <p class="notice" id="rescan-note" hidden></p>
 
-      </section>
-
-          <section class="card">
-        <h2><span class="rule" aria-hidden="true"></span>Rescan a range of blocks</h2>
-            <p class="muted">Only needed if the tracker missed a stretch of chain.</p>
-            <div class="field-pair">
-              <div>
-                <label class="field-label" for="blocks-from">From block</label>
-                <input id="blocks-from" type="number" min="0" step="1">
-              </div>
-              <div>
-                <label class="field-label" for="blocks-to">To block</label>
-                <input id="blocks-to" type="number" min="0" step="1">
-              </div>
-              <div class="field-pair-action">
-                <button class="btn btn--ghost" id="blocks-run">Start rescan</button>
-              </div>
-            </div>
-            <p class="notice" id="blocks-note" hidden></p>
-      </section>
+      <!-- Progress. A wallet rescan has no knowable total -- the scan stops
+           when it meets a long enough run of unused addresses -- so it shows
+           stages and a running count of transactions found, never a made-up
+           percentage. -->
+      <div class="job" id="rescan-job" hidden>
+        <div class="job-head">
+          <span class="job-title" id="rescan-job-title"></span>
+          <span class="job-meta" id="rescan-job-meta"></span>
+        </div>
+        <div class="job-bar"><span id="rescan-job-fill"></span></div>
+        <div class="job-detail" id="rescan-job-detail"></div>
+      </div>
     </section>
 
-    <section class="panel-tab" id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced" hidden>
-      <!-- PandoTx --------------------------------------------------------->
-      <!-- Read-only on purpose. keys.index.js computes these once at module load
-           from the container's environment and nothing in Dojo's API can change
-           them, so a switch here would do nothing. The real controls are the
-           manifest's `environment:` entries, which umbrelOS renders in this app's
-           settings and applies by restarting the app. -->
-      <section class="card">
-        <h2><span class="rule" aria-hidden="true"></span>Transaction relay</h2>
-        <div class="wallets">
-          <div class="wcard">
-            <div class="top"><span class="nm">Broadcasting</span></div>
-            <span class="pill" id="pandotx-push-pill">&mdash;</span>
-            <div class="sub" id="pandotx-push-note">Checking&hellip;</div>
-          </div>
-          <div class="wcard">
-            <div class="top"><span class="nm">Relaying for others</span></div>
-            <span class="pill" id="pandotx-relay-pill">&mdash;</span>
-            <div class="sub" id="pandotx-relay-note">Checking&hellip;</div>
-          </div>
+    <section class="card">
+      <h2><span class="rule" aria-hidden="true"></span>Rescan a range of blocks</h2>
+      <p class="muted">Only needed if the tracker missed a stretch of chain.</p>
+      <div class="field-pair">
+        <div>
+          <label class="field-label" for="blocks-from">From block</label>
+          <input id="blocks-from" type="number" min="0" step="1">
         </div>
-        <p class="muted small">
-          Change these in umbrelOS under this app's settings. Dojo reads them when
-          it starts, so umbrelOS restarts the app to apply a change.
-        </p>
-      </section>
+        <div>
+          <label class="field-label" for="blocks-to">To block</label>
+          <input id="blocks-to" type="number" min="0" step="1">
+        </div>
+        <div class="field-pair-action">
+          <button class="btn btn--ghost" id="blocks-run">Start rescan</button>
+        </div>
+      </div>
+      <!-- What the range will actually do, before it is started: Dojo stops at
+           its own highest block, and an empty "to" means one block. Neither
+           should be discovered afterwards. -->
+      <p class="muted small" id="blocks-span"></p>
+      <p class="notice" id="blocks-note" hidden></p>
 
-          <section class="card">
-        <h2><span class="rule" aria-hidden="true"></span>Maintenance Tool</h2>
-            <p class="muted">
-              Dojo's own admin interface. Everything this page offers is there
-              too, alongside lower-level tools this page deliberately leaves out.
-            </p>
-            <p><a class="btn btn--ghost" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a></p>
-            <p class="muted small" id="dmt-note">
-              Opens over Tor, so it needs Tor Browser &mdash; an <code>.onion</code>
-              address will not load in an ordinary browser.
-            </p>
-            <label class="field-label" for="admin-key">Admin key</label>
-            <div class="copy-row">
-              <input id="admin-key" type="password" readonly value="">
-              <button class="btn btn--ghost" data-reveal="admin-key">Show</button>
-              <button class="btn btn--ghost" data-copy="admin-key">Copy</button>
-            </div>
-      </section>
+      <!-- Progress. The tracker announces every block it processes over the
+           websocket, rescans included, so this bar is a real count. -->
+      <div class="job" id="blocks-job" hidden>
+        <div class="job-head">
+          <span class="job-title" id="blocks-job-title"></span>
+          <span class="job-meta" id="blocks-job-meta"></span>
+        </div>
+        <div class="job-bar"><span id="blocks-job-fill"></span></div>
+        <div class="job-detail" id="blocks-job-detail"></div>
+        <button class="btn btn--ghost btn--sm job-dismiss" type="button" id="blocks-job-dismiss" hidden>Dismiss</button>
+      </div>
+    </section>
+    </section>
+
+    <section id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced" hidden>
+    <!-- PandoTx ---------------------------------------------------------->
+    <!-- Read-only on purpose. keys.index.js computes these once at module load
+         from the container's environment and nothing in Dojo's API can change
+         them, so a switch here would do nothing. The real controls are the
+         manifest's `environment:` entries, which umbrelOS renders in this app's
+         settings and applies by restarting the app. -->
+    <section class="card">
+      <h2><span class="rule" aria-hidden="true"></span>Transaction relay</h2>
+      <div class="wallets">
+        <div class="wcard">
+          <div class="top"><span class="nm">Broadcasting</span></div>
+          <span class="pill" id="pandotx-push-pill">&mdash;</span>
+          <div class="sub" id="pandotx-push-note">Checking&hellip;</div>
+        </div>
+        <div class="wcard">
+          <div class="top"><span class="nm">Relaying for others</span></div>
+          <span class="pill" id="pandotx-relay-pill">&mdash;</span>
+          <div class="sub" id="pandotx-relay-note">Checking&hellip;</div>
+        </div>
+      </div>
+      <p class="muted small">
+        Change these in umbrelOS under this app's settings. Dojo reads them when
+        it starts, so umbrelOS restarts the app to apply a change.
+      </p>
+    </section>
+
+    <!-- Maintenance Tool ------------------------------------------------->
+    <section class="card">
+      <h2><span class="rule" aria-hidden="true"></span>Maintenance Tool</h2>
+      <p class="muted">
+        Dojo's own admin interface, with the lower-level tools this page
+        deliberately leaves out.
+      </p>
+      <p><a class="btn btn--ghost" id="dmt-link" href="#" target="_blank" rel="noopener">Open Maintenance Tool</a></p>
+      <p class="muted small" id="dmt-note">
+        Opens over Tor, so it needs Tor Browser &mdash; an <code>.onion</code>
+        address will not load in an ordinary browser.
+      </p>
+      <label class="field-label" for="admin-key">Admin key</label>
+      <div class="copy-row">
+        <input id="admin-key" type="password" readonly value="">
+        <button class="btn btn--ghost" data-reveal="admin-key">Show</button>
+        <button class="btn btn--ghost" data-copy="admin-key">Copy</button>
+      </div>
+    </section>
     </section>
 
     <!-- Pairing, outside the panels: a modal <dialog> floats above whatever
@@ -325,82 +356,82 @@
       <!-- Step two: the code itself. Also what a "Show code" action opens
            directly, with no minting. -->
       <div id="pair-code" hidden>
-      <p class="muted small" id="pair-which"></p>
-      <p class="muted" id="pairing-hint">
-        This is your Dojo's Tor address. It works from anywhere, not just at
-        home, and keeps the connection private. Your wallet needs Tor enabled.
-      </p>
-
-      <div class="pairing">
-        <div class="qr" id="qr"><div class="qr-placeholder">Loading&hellip;</div></div>
-        <div class="pairing-detail">
-          <label class="field-label" for="endpoint">Dojo API endpoint</label>
-          <div class="copy-row">
-            <input id="endpoint" type="text" readonly value="">
-            <button class="btn btn--ghost" data-copy="endpoint">Copy</button>
-          </div>
-          <details class="details">
-            <summary>Show pairing payload</summary>
-            <div class="code-head">
-              <span class="muted small">What the QR encodes</span>
-              <button class="btn btn--ghost btn--sm" data-copy="pairing-json">Copy</button>
-            </div>
-            <pre id="pairing-json" class="code-block">&mdash;</pre>
-          </details>
-          <p class="muted small" id="explorer-note"></p>
-        </div>
-      </div>
-
-      <details class="details">
-        <summary>Pair over your local network instead</summary>
-        <p class="muted">
-          Faster, and it works before Tor has published &mdash; but a wallet stores
-          one address, and this one only resolves on your home network. A wallet
-          paired this way will stop reaching your Dojo the moment you leave, and
-          the traffic is not encrypted. Prefer the Tor code above unless you have a
-          reason not to, such as reaching this Umbrel over your own VPN.
+        <p class="muted small" id="pair-which"></p>
+        <p class="muted" id="pairing-hint">
+          This is your Dojo's Tor address. It works from anywhere, not just at
+          home, and keeps the connection private. Your wallet needs Tor enabled.
         </p>
+
         <div class="pairing">
-          <div class="qr" id="qr-lan"><div class="qr-placeholder">Loading&hellip;</div></div>
+          <div class="qr" id="qr"><div class="qr-placeholder">Loading&hellip;</div></div>
           <div class="pairing-detail">
-            <label class="field-label" for="endpoint-lan">Dojo API endpoint (local network)</label>
+            <label class="field-label" for="endpoint">Dojo API endpoint</label>
             <div class="copy-row">
-              <input id="endpoint-lan" type="text" readonly value="">
-              <button class="btn btn--ghost" data-copy="endpoint-lan">Copy</button>
+              <input id="endpoint" type="text" readonly value="">
+              <button class="btn btn--ghost" data-copy="endpoint">Copy</button>
             </div>
+            <details class="details">
+              <summary>Show pairing payload</summary>
+              <div class="code-head">
+                <span class="muted small">What the QR encodes</span>
+                <button class="btn btn--ghost btn--sm" data-copy="pairing-json">Copy</button>
+              </div>
+              <pre id="pairing-json" class="code-block">&mdash;</pre>
+            </details>
+            <p class="muted small" id="explorer-note"></p>
           </div>
         </div>
-      </details>
 
-      <details class="details">
-        <summary>Ashigaru Wallet (Android)</summary>
-        <ol class="steps">
-          <li>Install Ashigaru Wallet and choose <b>Connect to existing Dojo</b> during setup.</li>
-          <li>Tap the QR scanner and scan the code above.</li>
-          <li>Finish wallet creation. Ashigaru shows a green indicator once it is talking to
-            your Dojo.</li>
-        </ol>
-      </details>
+        <details class="details">
+          <summary>Pair over your local network instead</summary>
+          <p class="muted">
+            Faster, and it works before Tor has published &mdash; but a wallet stores
+            one address, and this one only resolves on your home network. A wallet
+            paired this way will stop reaching your Dojo the moment you leave, and
+            the traffic is not encrypted. Prefer the Tor code above unless you have a
+            reason not to, such as reaching this Umbrel over your own VPN.
+          </p>
+          <div class="pairing">
+            <div class="qr" id="qr-lan"><div class="qr-placeholder">Loading&hellip;</div></div>
+            <div class="pairing-detail">
+              <label class="field-label" for="endpoint-lan">Dojo API endpoint (local network)</label>
+              <div class="copy-row">
+                <input id="endpoint-lan" type="text" readonly value="">
+                <button class="btn btn--ghost" data-copy="endpoint-lan">Copy</button>
+              </div>
+            </div>
+          </div>
+        </details>
 
-      <details class="details">
-        <summary>Samourai Wallet (Android)</summary>
-        <ol class="steps">
-          <li>During setup choose <b>Connect to existing Dojo</b>, or from an existing wallet
-            open <b>Settings &rsaquo; Transactions &rsaquo; Dojo</b>.</li>
-          <li>Tap the QR scanner and scan the code above.</li>
-          <li>The Dojo indicator turns solid once the wallet is talking to your node.</li>
-        </ol>
-      </details>
+        <details class="details">
+          <summary>Ashigaru Wallet (Android)</summary>
+          <ol class="steps">
+            <li>Install Ashigaru Wallet and choose <b>Connect to existing Dojo</b> during setup.</li>
+            <li>Tap the QR scanner and scan the code above.</li>
+            <li>Finish wallet creation. Ashigaru shows a green indicator once it is talking to
+              your Dojo.</li>
+          </ol>
+        </details>
 
-      <details class="details">
-        <summary>Sentinel (watch-only)</summary>
-        <ol class="steps">
-          <li>Open Sentinel and go to <b>Settings &rsaquo; Connect to Dojo</b>.</li>
-          <li>Scan the code above.</li>
-          <li>Add your xpubs; they are tracked by your own Dojo instead of a third-party
-            server.</li>
-        </ol>
-      </details>
+        <details class="details">
+          <summary>Samourai Wallet (Android)</summary>
+          <ol class="steps">
+            <li>During setup choose <b>Connect to existing Dojo</b>, or from an existing wallet
+              open <b>Settings &rsaquo; Transactions &rsaquo; Dojo</b>.</li>
+            <li>Tap the QR scanner and scan the code above.</li>
+            <li>The Dojo indicator turns solid once the wallet is talking to your node.</li>
+          </ol>
+        </details>
+
+        <details class="details">
+          <summary>Sentinel (watch-only)</summary>
+          <ol class="steps">
+            <li>Open Sentinel and go to <b>Settings &rsaquo; Connect to Dojo</b>.</li>
+            <li>Scan the code above.</li>
+            <li>Add your xpubs; they are tracked by your own Dojo instead of a third-party
+              server.</li>
+          </ol>
+        </details>
       </div>
     </dialog>
 

@@ -43,6 +43,14 @@ something has been looked up.
 The element stub only answers for ids that appear in `connect/index.html` and
 throws for anything else, so markup and script cannot drift apart silently.
 
+The rescan progress tests play Dojo's side of the conversation. A fake
+websocket lets a test push `block` events the way `notifications-service.js`
+frames them. Rescan and import-status responses can be held open, so a running
+job can be inspected mid-flight, and a status reply can be made to land after
+the rescan finished. Timers are recorded rather than run, so polling only
+happens when a test fires it. `sessionStorage` is a plain map that a test can
+pre-seed, which is how a reload during a rescan is simulated.
+
 The per-wallet API key tests are the ones worth reading if you change that
 code. The fixture mutates its own key rows rather than handing back a canned
 answer, because the behaviour under test is a round trip: Dojo's

@@ -119,9 +119,24 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 	explorerUrl = "http://my-own-mempool.onion",
 	keys = defaultKeys(), keysFail = false,
 	hash = "", feesFail = false,
-	pandoTxPush = "on", pandoTxProcess = "off", sorobanAnnounce = "off" } = {}) {
+	pandoTxPush = "on", pandoTxProcess = "off", sorobanAnnounce = "off",
+	indexerHeight = 92_417,
+	// Rescans resolve only when the test says so, so a running job can be
+	// inspected mid-flight.
+	holdRescans = false,
+	xpubRescanStatus = "Rescan complete",
+	importStatus = { import_in_progress: false },
+	websocket = true,
+	storage = {} } = {}) {
 	const elements = new Map();
-	const calls = { login: 0, status: 0, onion: 0, other: [], keys: [] };
+	const calls = { login: 0, status: 0, onion: 0, other: [], keys: [], importStatus: 0 };
+	const held = [];
+	const sockets = [];
+	const timers = { intervals: [], timeouts: [] };
+	const store = new Map(Object.entries(storage));
+	let currentImportStatus = importStatus;
+	let holdingStatus = false;
+	const heldStatus = [];
 	let statusUnauthorizedOnce = false;
 	let rows = keys.map((key) => ({ ...key }));
 	let nextKeyId = rows.reduce((top, key) => Math.max(top, key.apikeyID), 0) + 1;
@@ -190,7 +205,7 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 				statusUnauthorizedOnce = false;
 				return json({ error: "expired" }, 401);
 			}
-			return json({ uptime: "3 days", blocks: 92_416, indexer: { type: "local_indexer", maxHeight: 92_417 } });
+			return json({ uptime: "3 days", blocks: 92_416, indexer: { type: "local_indexer", maxHeight: indexerHeight } });
 		}
 		if (url.endsWith("/pairing")) {
 			return pairing
@@ -243,6 +258,28 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 			}
 		}
 
+		/* Rescan progress. import/status answers through sendOkData, so it is
+		 * wrapped like pushtx's status. The rescans themselves can be held open
+		 * to look at the page mid-run. */
+		if (url.endsWith("/import/status")) {
+			calls.importStatus += 1;
+			if (holdingStatus) {
+				const answer = currentImportStatus;
+				return new Promise((resolve) => {
+					heldStatus.push((override) => resolve(json({ status: "ok", data: override || answer })));
+				});
+			}
+			return json({ status: "ok", data: currentImportStatus });
+		}
+		if (url.includes("/rescan")) {
+			calls.other.push({ url, options });
+			const body = url.includes("/xpub/") ? { status: xpubRescanStatus } : { status: "Rescan complete" };
+			if (!holdRescans) return json(body);
+			return new Promise((resolve) => {
+				held.push(() => resolve(json(body)));
+			});
+		}
+
 		calls.other.push({ url, options });
 		if (url.includes("/xpub/")) {
 			return json({ tracked: true, balance: 42_170_000, n_tx: 38, derivation: "m/84'/1'/0'", derived: { external: 214, internal: 110 }, unused: { external: 97, internal: 40 } });
@@ -271,9 +308,14 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 		},
 		document,
 		fetch: fetchStub,
+		sessionStorage: {
+			getItem: (key) => (store.has(key) ? store.get(key) : null),
+			setItem: (key, value) => { store.set(key, String(value)); },
+			removeItem: (key) => { store.delete(key); }
+		},
 		// showTab reads the hash to pick a tab and rewrites it with replaceState,
 		// so both have to exist or the page throws before it renders.
-		location: { hash: hash },
+		location: { hash: hash, protocol: "http:", host: "umbrel.local:3025" },
 		history: {
 			replaceState(_state, _title, url) {
 				context.location.hash = String(url);
@@ -282,19 +324,50 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 		window: { isSecureContext: false },
 		navigator: {},
 		console: { error() {}, log() {} },
-		// Deterministic: the page's own polling must not drive the test.
-		setInterval: () => 0,
-		clearInterval: () => {},
-		setTimeout: () => 0,
+		// Deterministic: the page's own polling must not drive the test. Timers
+		// are recorded instead, so a test can fire one on purpose.
+		setInterval: (fn) => { timers.intervals.push(fn); return timers.intervals.length; },
+		clearInterval: (id) => { if (id) timers.intervals[id - 1] = null; },
+		setTimeout: (fn) => { timers.timeouts.push(fn); return timers.timeouts.length; },
+		clearTimeout: (id) => { if (id) timers.timeouts[id - 1] = null; },
 		QRCode: function QRCode(options) {
 			this.svg = () => `<svg data-content="${String(options.content).length}"></svg>`;
 		}
 	};
+	/* A websocket that records what the page sends and lets the test play the
+	 * server's side: open it, then push messages the way Dojo's notifications
+	 * service frames them. */
+	if (websocket) {
+		context.WebSocket = function WebSocket(url) {
+			this.url = url;
+			this.sent = [];
+			this.closed = false;
+			this.send = (data) => { this.sent.push(JSON.parse(data)); };
+			this.close = () => { this.closed = true; };
+			sockets.push(this);
+		};
+	}
 	createContext(context);
 
 	return {
 		context,
 		calls,
+		held,
+		sockets,
+		timers,
+		store,
+		setImportStatus(value) { currentImportStatus = value; },
+		holdStatus(on) { holdingStatus = on; },
+		heldStatus,
+		// Fire every live interval once, the way a tick of the clock would.
+		tick() { timers.intervals.filter(Boolean).forEach((fn) => fn()); },
+		fireTimeouts() {
+			const due = timers.timeouts.splice(0).filter(Boolean);
+			due.forEach((fn) => fn());
+		},
+		block(socket, height) {
+			socket.onmessage({ data: JSON.stringify({ op: "block", x: { height, hash: "h" + height } }) });
+		},
 		elements,
 		el: (id) => document.getElementById(id),
 		expireNextStatus() { statusUnauthorizedOnce = true; },
@@ -589,11 +662,14 @@ process.stdout.write("\nConnect page\n");
 	h.el("blocks-run").click();
 	await h.settle();
 
-	check("a block-range rescan calls the tracker route", () => {
+	check("a block-range rescan calls the tracker route, clipped to Dojo's tip", () => {
 		const hit = h.calls.other.find((c) => c.url.includes("/tracker/"));
 		assert(hit, `no tracker call; saw ${h.calls.other.map((c) => c.url).join(", ")}`);
+		// The fixture's tracker is at 92,416. Dojo would clip 92,417 itself
+		// (blockchain-processor.js); the page now does it up front so the bar's
+		// total is the number of blocks that will really be scanned.
 		assert(
-			hit.url === "/test/v2/tracker/support/rescan?fromHeight=91000&toHeight=92417",
+			hit.url === "/test/v2/tracker/support/rescan?fromHeight=91000&toHeight=92416",
 			`got ${hit.url}`
 		);
 	});
@@ -625,7 +701,16 @@ process.stdout.write("\nConnect page\n");
 
 	check("the count includes the environment key, which is not in the table", () => {
 		// One authorized row plus the key Umbrel derived into the container.
-		assert(h.el("wallet-count").textContent === "2 keys", `got ${h.el("wallet-count").textContent}`);
+		assert(h.el("wallet-count").textContent.startsWith("2 authorized"), `got ${h.el("wallet-count").textContent}`);
+	});
+
+	check("the count accounts for every card on screen, not just the authorized ones", () => {
+		// It used to read "2 keys" above four cards. Each card is now counted
+		// under the word its own pill shows.
+		assert(
+			h.el("wallet-count").textContent === "2 authorized \u00b7 1 expired \u00b7 1 revoked",
+			`got ${h.el("wallet-count").textContent}`
+		);
 	});
 
 	check("neither pairing entrance mints a key", () => {
@@ -705,7 +790,7 @@ process.stdout.write("\nConnect page\n");
 
 	check("the new wallet appears in the list", () => {
 		assert(h.el("wallet-rows").children.length === 4, `got ${h.el("wallet-rows").children.length}`);
-		assert(h.el("wallet-count").textContent === "3 keys", `got ${h.el("wallet-count").textContent}`);
+		assert(h.el("wallet-count").textContent.startsWith("3 authorized"), `got ${h.el("wallet-count").textContent}`);
 	});
 }
 
@@ -781,7 +866,7 @@ process.stdout.write("\nConnect page\n");
 		);
 		assert(h.el("wallet-rows").children.length === 3, "nothing should be deleted");
 		assert(pills[0] === "Revoked", `got ${pills[0]}`);
-		assert(h.el("wallet-count").textContent === "1 key", `got ${h.el("wallet-count").textContent}`);
+		assert(h.el("wallet-count").textContent === "1 authorized \u00b7 1 expired \u00b7 2 revoked", `got ${h.el("wallet-count").textContent}`);
 	});
 }
 
@@ -1004,6 +1089,351 @@ process.stdout.write("\nConnect page\n");
 		assert(lamp.getAttribute("aria-label") === "Enabled", `got ${lamp.getAttribute("aria-label")}`);
 		// The rest of the page is fine, so this is not a general failure state.
 		assert(h.el("svc-bitcoind").getAttribute("aria-label") === "Healthy", "the node should still be healthy");
+	});
+}
+
+/* ---------------------------------------------------------- rescan progress */
+
+process.stdout.write("\nRescan progress\n");
+
+const fill = (h, prefix) => h.el(`${prefix}-job-fill`).style.width || "";
+const jobClass = (h, prefix) => h.el(`${prefix}-job`).className;
+
+{
+	// Dojo answers a rescan of an untracked wallet with HTTP 200 and a status
+	// that begins "Error:". The old page showed that string in green.
+	const h = makeHarness({ onion: "abcdef123456.onion", xpubRescanStatus: "Error: Not tracking xpub" });
+	h.run();
+	await h.settle();
+	h.el("rescan-target").value = "vpub5YourWalletKey";
+	h.el("rescan-run").click();
+	await h.settle();
+
+	check("a refused wallet rescan reads as an error, not a success", () => {
+		assert(jobClass(h, "rescan").includes("job--failed"), `class was ${jobClass(h, "rescan")}`);
+		assert(!jobClass(h, "rescan").includes("job--done"), "must not show the finished state");
+		assert(/not tracking this wallet/.test(h.el("rescan-job-detail").textContent),
+			`detail was ${h.el("rescan-job-detail").textContent}`);
+		assert(h.el("rescan-run").disabled === false, "the button should come back");
+	});
+}
+
+{
+	const h = makeHarness({
+		onion: "abcdef123456.onion", holdRescans: true,
+		importStatus: { import_in_progress: true, status: "rescan", hits: 12 }
+	});
+	h.run();
+	await h.settle();
+	h.el("rescan-target").value = "vpub5YourWalletKey";
+	h.el("rescan-run").click();
+	await h.settle();
+
+	check("a wallet rescan polls Dojo's import status and shows what it found", () => {
+		assert(h.calls.importStatus >= 1, "import/status was never asked");
+		assert(jobClass(h, "rescan").includes("job--indeterminate"), "no total exists, so no percentage");
+		assert(h.el("rescan-job-detail").textContent === "Scanning addresses · 12 transactions found so far.",
+			`detail was ${h.el("rescan-job-detail").textContent}`);
+		assert(h.el("rescan-run").disabled === true, "the button must stay disabled while it runs");
+	});
+
+	check("the running wallet job is saved, so a reload can pick it up", () => {
+		const saved = JSON.parse(h.store.get("dojo-connect-job") || "null");
+		assert(saved && saved.kind === "xpub" && saved.target === "vpub5YourWalletKey", `saved ${JSON.stringify(saved)}`);
+	});
+
+	h.setImportStatus({ import_in_progress: true, status: "import", hits: 40 });
+	h.tick();
+	await h.settle();
+
+	check("the saving stage is reported with its transaction count", () => {
+		assert(h.el("rescan-job-detail").textContent === "Saving 40 transactions to Dojo's database.",
+			`detail was ${h.el("rescan-job-detail").textContent}`);
+	});
+
+	// A status request leaves just before the rescan answers, and its reply --
+	// still saying "scanning" -- lands after the finish.
+	h.holdStatus(true);
+	h.tick();
+	await h.settle();
+	h.holdStatus(false);
+	h.setImportStatus({ import_in_progress: false });
+	h.held.splice(0).forEach((release) => release());
+	await h.settle();
+	h.heldStatus.splice(0).forEach((release) =>
+		release({ import_in_progress: true, status: "rescan", hits: 99 }));
+	await h.settle();
+
+	check("a finished wallet rescan shows what Dojo now holds", () => {
+		assert(jobClass(h, "rescan").includes("job--done"), `class was ${jobClass(h, "rescan")}`);
+		// From the /xpub/:x/info fixture: 38 transactions, 42,170,000 sats.
+		assert(/^38 transactions · balance /.test(h.el("rescan-job-detail").textContent),
+			`detail was ${h.el("rescan-job-detail").textContent}`);
+		assert(!h.store.has("dojo-connect-job"), "the saved job should be cleared");
+		assert(h.el("rescan-run").disabled === false, "the button should come back");
+	});
+
+	check("a status reply that lands after the finish cannot repaint the panel", () => {
+		assert(jobClass(h, "rescan").includes("job--done"), `class became ${jobClass(h, "rescan")}`);
+		assert(!/99/.test(h.el("rescan-job-detail").textContent), "the late count must not show");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", holdRescans: true });
+	h.run();
+	await h.settle();
+	h.el("rescan-target").value = "tb1qexampleaddress";
+	h.el("rescan-run").click();
+	await h.settle();
+
+	check("an address rescan shows a moving bar, and does not poll wallet status", () => {
+		assert(jobClass(h, "rescan").includes("job--indeterminate"), `class was ${jobClass(h, "rescan")}`);
+		assert(h.calls.importStatus === 0, "import/status is for extended keys only");
+	});
+
+	h.held.splice(0).forEach((release) => release());
+	await h.settle();
+
+	check("a finished address rescan reports the address's figures", () => {
+		assert(jobClass(h, "rescan").includes("job--done"), `class was ${jobClass(h, "rescan")}`);
+		assert(/^3 transactions/.test(h.el("rescan-job-detail").textContent),
+			`detail was ${h.el("rescan-job-detail").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("gap limit and start index stay hidden until the input is an extended key", () => {
+		assert(h.el("rescan-gap-field").hidden === true, "hidden with nothing typed");
+		h.el("rescan-target").value = "tb1qexampleaddress";
+		h.el("rescan-target").listeners.input.forEach((fn) => fn({}));
+		assert(h.el("rescan-gap-field").hidden === true, "an address takes no lookahead");
+		h.el("rescan-target").value = "zpub6rFR7y4Q2Aij";
+		h.el("rescan-target").listeners.input.forEach((fn) => fn({}));
+		assert(h.el("rescan-gap-field").hidden === false, "shown for an xpub");
+		assert(h.el("rescan-start-field").hidden === false, "shown for an xpub");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", holdRescans: true });
+	h.run();
+	await h.settle();
+	h.el("blocks-from").value = "92000";
+	h.el("blocks-to").value = "92009";
+	h.el("blocks-from").listeners.input.forEach((fn) => fn({}));
+
+	check("the range says how many blocks it will scan before it starts", () => {
+		assert(h.el("blocks-span").textContent === "10 blocks.", `got ${h.el("blocks-span").textContent}`);
+	});
+
+	h.el("blocks-run").click();
+	await h.settle();
+	const socket = h.sockets[0];
+
+	check("a block rescan opens Dojo's websocket and subscribes with the session token", () => {
+		assert(socket, "no websocket was opened");
+		assert(socket.url === "ws://umbrel.local:3025/test/v2/inv", `url was ${socket.url}`);
+		socket.onopen();
+		assert(socket.sent.length === 1 && socket.sent[0].op === "blocks_sub", `sent ${JSON.stringify(socket.sent)}`);
+		assert(typeof socket.sent[0].at === "string" && socket.sent[0].at.startsWith("token-"), "the JWT must ride along");
+	});
+
+	for (let height = 92000; height < 92005; height += 1) h.block(socket, height);
+
+	check("blocks inside the range move the bar to a real percentage", () => {
+		assert(fill(h, "blocks") === "50.0%", `width was ${fill(h, "blocks")}`);
+		assert(!jobClass(h, "blocks").includes("job--indeterminate"), "this one has a total");
+		assert(h.el("blocks-job-detail").textContent.startsWith("5 of 10 blocks"),
+			`detail was ${h.el("blocks-job-detail").textContent}`);
+	});
+
+	check("a new tip block or a repeat does not count as progress", () => {
+		h.block(socket, 92_417);
+		h.block(socket, 92_003);
+		assert(fill(h, "blocks") === "50.0%", `width moved to ${fill(h, "blocks")}`);
+	});
+
+	h.held.splice(0).forEach((release) => release());
+	await h.settle();
+
+	check("the finished block rescan says what it did and lets go of the socket", () => {
+		assert(jobClass(h, "blocks").includes("job--done"), `class was ${jobClass(h, "blocks")}`);
+		assert(h.el("blocks-job-title").textContent === "Rescanned 10 blocks", `title was ${h.el("blocks-job-title").textContent}`);
+		assert(socket.closed, "the socket should be closed");
+		assert(!h.store.has("dojo-connect-job"), "the saved job should be cleared");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", holdRescans: true });
+	h.run();
+	await h.settle();
+	const loginsBefore = h.calls.login;
+	h.el("blocks-from").value = "92000";
+	h.el("blocks-run").click();
+	await h.settle();
+	const socket = h.sockets[0];
+
+	check("the socket subscribes with a freshly issued token", () => {
+		// Access tokens last fifteen minutes and a socket cannot recover from a
+		// stale one, so the page logs in again rather than reusing what it holds.
+		assert(h.calls.login === loginsBefore + 1, `logins went ${loginsBefore} -> ${h.calls.login}`);
+		socket.onopen();
+		assert(socket.sent[0].at === `token-${h.calls.login}`, `subscribed with ${socket.sent[0].at}`);
+		assert(/^Connected\. Waiting for Dojo to reach block 92,000/.test(h.el("blocks-job-detail").textContent),
+			`detail was ${h.el("blocks-job-detail").textContent}`);
+	});
+
+	socket.onmessage({ data: JSON.stringify({ op: "error", msg: "Invalid JSON Web Token" }) });
+
+	check("a refused token falls back to the moving bar instead of waiting forever", () => {
+		assert(socket.closed, "the refused socket should be closed");
+		assert(/Live progress is not available/.test(h.el("blocks-job-detail").textContent),
+			`detail was ${h.el("blocks-job-detail").textContent}`);
+		assert(h.el("blocks-run").disabled === true, "the rescan itself is still running");
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", holdRescans: true, websocket: false });
+	h.run();
+	await h.settle();
+	h.el("blocks-from").value = "92000";
+	h.el("blocks-run").click();
+	await h.settle();
+
+	check("with no websocket, a block rescan still runs and says it cannot show progress", () => {
+		assert(h.calls.other.some((c) => c.url.includes("fromHeight=92000&toHeight=92000")), "the rescan must still be sent");
+		assert(jobClass(h, "blocks").includes("job--indeterminate"), `class was ${jobClass(h, "blocks")}`);
+		assert(/Live progress is not available/.test(h.el("blocks-job-detail").textContent),
+			`detail was ${h.el("blocks-job-detail").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("a range past Dojo's tip is clipped, and the hint says so", () => {
+		h.el("blocks-from").value = "92400";
+		h.el("blocks-to").value = "93000";
+		h.el("blocks-to").listeners.input.forEach((fn) => fn({}));
+		assert(/^17 blocks\. Dojo stops at its highest block, 92,416\.$/.test(h.el("blocks-span").textContent),
+			`got ${h.el("blocks-span").textContent}`);
+	});
+
+	check("an empty “to” is called out as a single block", () => {
+		h.el("blocks-to").value = "";
+		h.el("blocks-to").listeners.input.forEach((fn) => fn({}));
+		assert(/^1 block — leave/.test(h.el("blocks-span").textContent), `got ${h.el("blocks-span").textContent}`);
+	});
+
+	check("a start beyond the tip is refused before anything is sent", () => {
+		h.el("blocks-from").value = "95000";
+		h.el("blocks-run").click();
+		assert(!h.calls.other.some((c) => c.url.includes("/tracker/")), "nothing should reach the tracker");
+		assert(h.el("blocks-note").hidden === false, "the reason should be shown");
+	});
+}
+
+{
+	const h = makeHarness({
+		onion: "abcdef123456.onion",
+		importStatus: { import_in_progress: true, status: "rescan", hits: 7 },
+		storage: { "dojo-connect-job": JSON.stringify({ kind: "xpub", target: "vpub5Resumed", started: Date.now() - 60_000 }) }
+	});
+	h.run();
+	await h.settle();
+
+	check("after a reload, a running wallet rescan picks up and keeps the button disabled", () => {
+		assert(h.el("rescan-job").hidden === false, "the panel should be back");
+		assert(h.el("rescan-target").value === "vpub5Resumed", `target was ${h.el("rescan-target").value}`);
+		assert(h.el("rescan-run").disabled === true, "a second rescan must not be startable");
+		assert(/7 transactions found/.test(h.el("rescan-job-detail").textContent), `detail was ${h.el("rescan-job-detail").textContent}`);
+	});
+
+	h.setImportStatus({ import_in_progress: false });
+	h.fireTimeouts();
+	await h.settle();
+
+	check("and finishes once Dojo reports it done", () => {
+		assert(jobClass(h, "rescan").includes("job--done"), `class was ${jobClass(h, "rescan")}`);
+		assert(h.el("rescan-run").disabled === false, "the button should come back");
+		assert(!h.store.has("dojo-connect-job"), "the saved job should be cleared");
+	});
+}
+
+{
+	const h = makeHarness({
+		onion: "abcdef123456.onion",
+		storage: { "dojo-connect-job": JSON.stringify({ kind: "blocks", from: 91_000, to: 91_099, total: 100, started: Date.now() - 60_000 }) }
+	});
+	h.run();
+	await h.settle();
+	const socket = h.sockets[0];
+	socket.onopen();
+	h.block(socket, 91_049);
+
+	check("after a reload, a block rescan resumes from the height Dojo has really reached", () => {
+		// The queue is sequential, so block 91,049 means 50 of 100 are done.
+		assert(fill(h, "blocks") === "50.0%", `width was ${fill(h, "blocks")}`);
+		assert(h.el("blocks-run").disabled === true, "a second rescan must not be startable");
+	});
+
+	h.block(socket, 91_099);
+
+	check("and finishes when the last block in range comes through", () => {
+		assert(jobClass(h, "blocks").includes("job--done"), `class was ${jobClass(h, "blocks")}`);
+		assert(!h.store.has("dojo-connect-job"), "the saved job should be cleared");
+	});
+}
+
+{
+	const h = makeHarness({
+		onion: "abcdef123456.onion",
+		storage: { "dojo-connect-job": JSON.stringify({ kind: "blocks", from: 91_000, to: 91_099, total: 100, started: Date.now() }) }
+	});
+	h.run();
+	await h.settle();
+	h.fireTimeouts();
+
+	check("a resumed block rescan that goes quiet says so instead of claiming it finished", () => {
+		assert(!jobClass(h, "blocks").includes("job--done"), "silence is not completion");
+		assert(h.el("blocks-job-title").textContent === "Rescan status unknown", `title was ${h.el("blocks-job-title").textContent}`);
+		// Nor may it look like it is still running: no moving bar, no clock.
+		assert(jobClass(h, "blocks").includes("job--unknown"), `class was ${jobClass(h, "blocks")}`);
+		assert(h.el("blocks-job-meta").textContent === "", `meta was ${h.el("blocks-job-meta").textContent}`);
+		assert(h.el("blocks-job-dismiss").hidden === false, "offer to clear it");
+		assert(h.el("blocks-run").disabled === false, "the button should come back");
+	});
+}
+
+/* ------------------------------------------------------- the Electrum lamp */
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", indexerHeight: 92_300 });
+	h.run();
+	await h.settle();
+
+	check("an Electrum server well behind the node is amber, not green", () => {
+		assert(h.el("svc-indexer").className.includes("dot--warn"), `class was ${h.el("svc-indexer").className}`);
+		assert(h.el("svc-indexer").getAttribute("aria-label") === "Syncing", `label was ${h.el("svc-indexer").getAttribute("aria-label")}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", indexerHeight: 92_416 });
+	h.run();
+	await h.settle();
+
+	check("an Electrum server a block behind is still healthy", () => {
+		assert(h.el("svc-indexer").getAttribute("aria-label") === "Healthy", `label was ${h.el("svc-indexer").getAttribute("aria-label")}`);
 	});
 }
 

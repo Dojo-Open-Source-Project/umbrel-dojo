@@ -266,9 +266,10 @@ p { margin: 0 0 12px; }
 .code-head .muted { flex: 1 1 auto; }
 
 /* Tabs -------------------------------------------------------------------- */
-/* [hidden] alone is not enough: the panels are flex/grid containers, and a
-   display rule in a later block would otherwise win over the UA sheet. */
-.panel-tab[hidden] { display: none; }
+/* [hidden] alone is not enough: any element with its own display rule -- the
+   panels, a .btn -- would otherwise win over the UA sheet and stay visible.
+   The rescan panel's Dismiss button showed mid-run for exactly this reason. */
+[hidden] { display: none !important; }
 
 /* A floating capsule rather than an edge-to-edge bar, matching umbrelOS's own
    apps: rounded ends, clear of the content, and only the current tab carries
@@ -531,22 +532,7 @@ p { margin: 0 0 12px; }
 }
 .resacts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 
-/* Maintenance ------------------------------------------------------------- */
-.tool {
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface); margin-bottom: 14px;
-}
-.tool > summary {
-  cursor: pointer; padding: 17px 18px;
-  font-size: 0.97rem; font-weight: 600;
-  list-style: none; display: flex; align-items: center; gap: 9px;
-}
-.tool > summary::-webkit-details-marker { display: none; }
-.tool > summary::after { content: "\25be"; margin-left: auto; color: var(--text-muted); }
-.tool[open] > summary::after { content: "\25b4"; }
-.tool-body { padding: 0 18px 18px; }
-.tool-split { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
-
+/* Tools forms ------------------------------------------------------------- */
 .field-pair { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .field-pair > div { flex: 1 1 130px; min-width: 0; }
 .field-pair .field-pair-action { flex: 0 0 auto; }
@@ -558,6 +544,65 @@ p { margin: 0 0 12px; }
   border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--text);
 }
+
+/* Rescan progress --------------------------------------------------------- */
+/* One panel for all three rescans. The bar is a real percentage only where
+   Dojo reports one (block ranges); otherwise it is indeterminate and the
+   detail line carries what is actually known -- a stage, a running count,
+   the elapsed time. */
+#blocks-span { margin: 8px 0 0; }
+#blocks-span:empty { display: none; }
+
+.job {
+  margin-top: 14px; padding: 14px 15px 13px;
+  background: var(--sunk); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.job-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.job-title { font-weight: 600; font-size: 0.93rem; min-width: 0; }
+.job-meta {
+  margin-left: auto; font-size: 0.8rem; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.job-bar {
+  position: relative; margin-top: 11px; height: 8px;
+  border-radius: 999px; background: var(--border); overflow: hidden;
+}
+.job-bar span {
+  position: absolute; inset: 0 auto 0 0; width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, var(--brand-a)), var(--accent));
+  transition: width 0.4s ease;
+}
+.job-detail {
+  margin-top: 9px; font-size: 0.84rem; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.job-dismiss { margin-top: 10px; }
+
+/* No total to measure against: a segment travels the track instead. */
+.job--indeterminate .job-bar span { width: 32%; animation: job-slide 1.5s ease-in-out infinite; }
+@keyframes job-slide {
+  from { left: -32%; }
+  to { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .job--indeterminate .job-bar span { animation: none; left: 0; width: 100%; opacity: 0.35; }
+  .job-bar span { transition: none; }
+}
+
+.job--done .job-bar span { width: 100%; background: var(--ok); }
+.job--done .job-title { color: var(--ok); }
+.job--done .job-title::before { content: "\2713\00a0"; }
+
+.job--unknown .job-bar { display: none; }
+
+/* Same tokens as .notice, so a failed rescan and a failed lookup read as the
+   same kind of thing. */
+.job--failed { background: var(--err-bg); border-color: transparent; }
+.job--failed .job-title, .job--failed .job-detail { color: var(--err); }
+.job--failed .job-bar { display: none; }
 
 /* Footer ------------------------------------------------------------------ */
 .app-footer {

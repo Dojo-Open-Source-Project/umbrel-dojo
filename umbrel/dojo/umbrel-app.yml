@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.11"
+version: "1.29.3-patch.12"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,20 +37,26 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Fixes the paired wallets list and the labels on the Advanced tab, which the
-  previous release left unstyled — plain text and bare buttons where the cards
-  should have been. Nothing was wrong with the wallets themselves.
+  Rescans now show their progress. A block-range rescan shows a real progress
+  bar, with how many blocks are done, how fast it is going and roughly how long
+  is left. A wallet rescan shows which stage it is at and how many transactions
+  it has found so far. Both finish by showing what changed, instead of a brief
+  message. If you reload the page partway through, it picks the rescan back up.
 
 
-  The Soroban light now turns green when relaying is actually working, rather
-  than sitting grey whatever the setting said. It still shows grey when
-  broadcasting through Soroban is switched off, because there is nothing to
-  report then.
+  Fixed: rescanning a wallet Dojo is not tracking used to show the error in
+  green, as if it had worked. It now says plainly that the rescan did not run,
+  and why.
 
 
-  The home screen widget now shows the same three percentages as the fee boxes
-  in the app, so the two cannot look like different answers to the same
-  question.
+  The block-range form now tells you how many blocks a range covers before you
+  start, and says up front when the range runs past the newest block Dojo has
+  indexed. Previously Dojo quietly stopped at that point.
+
+
+  The paired wallets count now matches the cards on screen, and the Electrum
+  server light turns amber while the server is still catching up with your
+  node, instead of showing green.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:
@@ -123,11 +129,11 @@ widgets:
       type: "three-stats"
       link: ""
       items:
-        - subtext: "Low"
+        - subtext: "Low 10%"
           text: "1 sat/vB"
-        - subtext: "Medium"
+        - subtext: "Med 50%"
           text: "3 sat/vB"
-        - subtext: "High"
+        - subtext: "High 99%"
           text: "8 sat/vB"
 
 defaultUsername: ""

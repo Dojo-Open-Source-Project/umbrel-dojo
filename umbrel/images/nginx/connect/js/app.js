@@ -36,7 +36,7 @@
 	 */
 	var state = {
 		onion: null, endpoint: null, pairing: null, token: null,
-		keys: [], showing: null
+		keys: [], showing: null, indexedTip: null
 	};
 
 	// Static: no onion needed, so this is available immediately and stays valid.
@@ -102,6 +102,13 @@
 		var bitcoind = (figures && figures.bitcoind) || null;
 		var indexer = (accounts && accounts.indexer) || {};
 		var indexedBlock = accounts ? accounts.blocks : null;
+		if (indexedBlock !== null && indexedBlock !== undefined) {
+			var first = state.indexedTip === null || state.indexedTip === undefined;
+			state.indexedTip = indexedBlock;
+			// The range hint quotes the tip, so give it one the first time a tip
+			// is known rather than waiting for the user to type.
+			if (first) blockRange(false);
+		}
 		var nodeBlock = bitcoind && bitcoind.blocks >= 0 ? bitcoind.blocks : null;
 
 		/* Three outcomes, not two. A null payload means the pushtx call itself
@@ -122,10 +129,18 @@
 			bitcoind ? (bitcoind.up ? "Healthy" : "Unavailable") : "Unknown"
 		);
 
+		/* Green only when the Electrum server is actually caught up. A server
+		 * that answers but lags the node is still catching up, and wallets
+		 * asking it for recent history get stale answers -- so amber, against
+		 * the node height when there is one to compare with. Two blocks of
+		 * slack, because the two are polled at slightly different moments.
+		 */
 		if (!accounts) {
 			svc("indexer", "idle", "Unknown");
 		} else if (indexer.maxHeight === null || indexer.maxHeight === undefined) {
 			svc("indexer", "warn", "Starting");
+		} else if (nodeBlock !== null && nodeBlock - indexer.maxHeight > 2) {
+			svc("indexer", "warn", "Syncing");
 		} else {
 			svc("indexer", "ok", "Healthy");
 		}
@@ -649,16 +664,20 @@
 		var host = el("wallet-rows");
 		host.innerHTML = "";
 
-		var authorized = 0;
+		// Starts at one for the environment key, which is not in the table and
+		// never expires. Every card on screen is counted under the word its
+		// pill shows, so the summary can never disagree with the cards.
+		var tally = { Authorized: 1, Expired: 0, Revoked: 0 };
 		state.keys.forEach(function (key) {
-			if (keyState(key).word === "Authorized") authorized += 1;
+			var word = keyState(key).word;
+			tally[word] = (tally[word] || 0) + 1;
 			host.appendChild(walletCard(key));
 		});
 
-		// Plus one for the environment key, which is not in the table and never
-		// expires.
-		var total = authorized + 1;
-		el("wallet-count").textContent = total + (total === 1 ? " key" : " keys");
+		el("wallet-count").textContent = Object.keys(tally)
+			.filter(function (word) { return tally[word] > 0; })
+			.map(function (word) { return tally[word] + " " + word.toLowerCase(); })
+			.join(" \u00b7 ");
 	}
 
 	function loadKeys() {
@@ -1036,6 +1055,182 @@
 			});
 	}
 
+	/* ------------------------------------------------------- rescan progress */
+
+	/* One controller per progress panel. The bar is determinate only when
+	 * progress() is given a real fraction; stage() puts it back to the
+	 * travelling segment. Elapsed time ticks in the meta slot until the job
+	 * ends, because "still going after 4 minutes" is information too.
+	 */
+	function job(prefix) {
+		var root = el(prefix + "-job");
+		var fill = el(prefix + "-job-fill");
+		var started = 0;
+		var ticker = null;
+
+		function tick() {
+			text(prefix + "-job-meta", duration(Date.now() - started));
+		}
+		function stop() {
+			if (ticker) clearInterval(ticker);
+			ticker = null;
+		}
+		function look(kind, title, detail) {
+			root.hidden = false;
+			root.className = "job" + (kind ? " job--" + kind : "");
+			if (title !== null && title !== undefined) el(prefix + "-job-title").textContent = title;
+			if (detail !== null && detail !== undefined) el(prefix + "-job-detail").textContent = detail;
+		}
+
+		return {
+			start: function (title, detail, since) {
+				stop();
+				started = since || Date.now();
+				fill.style.width = "";
+				look("indeterminate", title, detail || "");
+				tick();
+				ticker = setInterval(tick, 1000);
+			},
+			stage: function (detail, title) {
+				fill.style.width = "";
+				look("indeterminate", title, detail);
+			},
+			progress: function (fraction, detail) {
+				look("", null, detail);
+				fill.style.width = Math.max(1, Math.min(100, fraction * 100)).toFixed(1) + "%";
+			},
+			done: function (title, detail) {
+				stop();
+				var took = Date.now() - started;
+				look("done", title, detail);
+				text(prefix + "-job-meta", duration(took));
+				fill.style.width = "";
+			},
+			fail: function (title, detail) {
+				stop();
+				look("failed", title, detail);
+				// Directly, not through text(): that renders empty as a dash.
+				el(prefix + "-job-meta").textContent = "";
+			},
+			// The page can no longer see the job. No moving bar and no ticking
+			// clock: both would say it is still running, which is not known.
+			unknown: function (title, detail) {
+				stop();
+				look("unknown", title, detail);
+				el(prefix + "-job-meta").textContent = "";
+			},
+			hide: function () {
+				stop();
+				root.hidden = true;
+			}
+		};
+	}
+
+	function duration(ms) {
+		var total = Math.max(0, Math.round(ms / 1000));
+		var minutes = Math.floor(total / 60);
+		var seconds = total % 60;
+		if (minutes >= 60) return Math.floor(minutes / 60) + "h " + (minutes % 60) + "m";
+		return minutes ? minutes + "m " + seconds + "s" : seconds + "s";
+	}
+
+	/* A running job survives a reload, so a refresh mid-rescan does not throw
+	 * away the progress -- or re-enable the button while Dojo is still busy.
+	 * sessionStorage, not localStorage: it belongs to this tab's session, and
+	 * it can be absent or throw (private windows), so every touch is guarded
+	 * and the page works without it.
+	 */
+	var JOB_KEY = "dojo-connect-job";
+
+	function saveJob(record) {
+		try {
+			if (record) sessionStorage.setItem(JOB_KEY, JSON.stringify(record));
+			else sessionStorage.removeItem(JOB_KEY);
+		} catch (error) { /* no storage: the job simply does not resume */ }
+	}
+
+	function loadJob() {
+		try {
+			var raw = sessionStorage.getItem(JOB_KEY);
+			return raw ? JSON.parse(raw) : null;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	/* Dojo answers a wallet rescan it cannot do with HTTP 200 and a status
+	 * that begins "Error:" (support-rest-api.js). Read as a success, that put
+	 * an error message in green. These are the two it sends. */
+	function rescanRefusal(status) {
+		if (!/^Error:/.test(status || "")) return null;
+		if (/not tracking/i.test(status)) {
+			return "Dojo is not tracking this wallet, so there is nothing to rescan. " +
+				"Add it from the wallet first; Dojo only rescans wallets it already knows.";
+		}
+		if (/in progress/i.test(status)) return "A rescan of this wallet is already running.";
+		return status.replace(/^Error:\s*/, "");
+	}
+
+	var rescanJob = null;
+	var blocksJob = null;
+
+	/* Wallet rescans. There is no total to measure against -- the scan ends
+	 * when it meets a long enough run of unused addresses -- so the bar stays
+	 * indeterminate and the detail line reports what Dojo does know: which
+	 * stage it is in and how many transactions it has found.
+	 */
+	var XPUB_POLL_MS = 1000;
+	var xpubPoll = null;
+	// Bumped whenever polling stops, so a status request still in flight when
+	// the rescan finishes cannot paint "Scanning" over the finished panel.
+	var xpubGen = 0;
+
+	// true while Dojo reports the rescan running, false once it is not, null
+	// when the status could not be read at all.
+	function checkXpub(xpub) {
+		var gen = xpubGen;
+		return authedGet("/xpub/" + encodeURIComponent(xpub) + "/import/status")
+			.then(function (body) {
+				var status = (body && body.data) || body || {};
+				if (!status.import_in_progress) return false;
+				if (gen !== xpubGen) return true;
+				var hits = number(status.hits || 0);
+				if (status.status === "import") {
+					rescanJob.stage("Saving " + hits + " transactions to Dojo's database.");
+				} else {
+					rescanJob.stage("Scanning addresses · " + hits + " transactions found so far.");
+				}
+				return true;
+			})
+			.catch(function () { return null; });
+	}
+
+	function pollXpub(xpub) {
+		stopXpubPoll();
+		xpubPoll = setInterval(function () { checkXpub(xpub); }, XPUB_POLL_MS);
+		return checkXpub(xpub);
+	}
+
+	function stopXpubPoll() {
+		if (xpubPoll) clearInterval(xpubPoll);
+		xpubPoll = null;
+		xpubGen += 1;
+	}
+
+	// The answer people actually rescan for: what Dojo now says the wallet holds.
+	function finishWithInfo(kind, value) {
+		return supportGet("/" + kind + "/" + encodeURIComponent(value) + "/info")
+			.then(function (info) {
+				rescanJob.done(
+					"Rescan complete",
+					number(info.n_tx) + " transactions · balance " + sats(info.balance)
+				);
+			})
+			.catch(function () {
+				rescanJob.done("Rescan complete", "");
+			});
+	}
+
 	function rescan() {
 		var value = el("rescan-target").value.trim();
 		if (!value) return;
@@ -1050,51 +1245,309 @@
 				"?gap=" + encodeURIComponent(el("rescan-gap").value || "0") +
 				"&startidx=" + encodeURIComponent(el("rescan-start").value || "0");
 		} else {
-			// The address route takes no lookahead arguments; the two fields
-			// above apply to extended keys only.
+			// The address route takes no lookahead arguments.
 			path = "/address/" + encodeURIComponent(value) + "/rescan";
 		}
 
+		notice("rescan-note", null);
 		button.disabled = true;
-		notice("rescan-note", "Rescanning. This can take several minutes — leave the page open.", "busy");
+		rescanJob.start(
+			isKey ? "Rescanning wallet" : "Rescanning address",
+			isKey ? "Starting…" : "Asking your Electrum server for this address's history."
+		);
+		if (isKey) {
+			saveJob({ kind: "xpub", target: value, started: Date.now() });
+			pollXpub(value);
+		}
 
 		supportGet(path)
 			.then(function (result) {
-				notice("rescan-note", result.status || "Rescan complete", "ok");
+				stopXpubPoll();
+				var refusal = rescanRefusal(result && result.status);
+				if (refusal) {
+					rescanJob.fail("Rescan did not run", refusal);
+					return null;
+				}
+				rescanJob.stage("Reading the result.", "Rescan finished");
+				return finishWithInfo(isKey ? "xpub" : "address", value);
 			})
 			.catch(function (error) {
-				notice("rescan-note", error.message);
+				stopXpubPoll();
+				rescanJob.fail("Rescan failed", error.message);
 			})
 			.then(function () {
+				if (isKey) saveJob(null);
 				button.disabled = false;
 			});
 	}
 
-	function rescanBlocks() {
-		var from = el("blocks-from").value.trim();
-		var to = el("blocks-to").value.trim();
-		if (!from) {
-			notice("blocks-note", "Enter the block to start from.");
+	/* A wallet rescan that was running when the page reloaded. The request that
+	 * started it is gone, but Dojo's import status still answers, so the panel
+	 * can pick up where it was and finish honestly. */
+	function resumeXpub(record) {
+		var button = el("rescan-run");
+		el("rescan-target").value = record.target;
+		syncRescanFields();
+		button.disabled = true;
+		rescanJob.start("Rescanning wallet", "Checking on the rescan that was running…", record.started);
+
+		var finish = function (running) {
+			saveJob(null);
+			button.disabled = false;
+			if (running === false) finishWithInfo("xpub", record.target);
+			else rescanJob.hide();
+		};
+		var watch = function () {
+			checkXpub(record.target).then(function (running) {
+				if (running === true) setTimeout(watch, XPUB_POLL_MS);
+				else finish(running);
+			});
+		};
+		watch();
+	}
+
+	/* Block ranges. The tracker sends a `block` event for every block it
+	 * processes, rescans included (blockchain-processor.js), and the accounts
+	 * service forwards them to websocket clients subscribed with blocks_sub.
+	 * So this bar is a real count. Heights are counted as a set rather than
+	 * read as "the latest", which stays right even if events arrive out of
+	 * order, and anything outside the range -- a new block at the tip while
+	 * the rescan runs -- is ignored.
+	 */
+	var blockSocket = null;
+
+	function watchBlocks(from, to, onBlock, onUnavailable, onOpen) {
+		if (typeof WebSocket === "undefined") {
+			onUnavailable();
 			return;
 		}
+		// A fresh token, not whatever the page holds: Dojo's access tokens last
+		// fifteen minutes, and the socket has no 401 to recover from -- an
+		// expired one just gets an error frame and then silence.
+		login()
+			.then(function (token) {
+				state.token = token;
+				openBlockSocket(from, to, onBlock, onUnavailable, onOpen);
+			})
+			.catch(onUnavailable);
+	}
+
+	function openBlockSocket(from, to, onBlock, onUnavailable, onOpen) {
+		var seen = {};
+		var count = 0;
+		var given = false;
+		var giveUp = function () {
+			if (given || count > 0) return;
+			given = true;
+			closeBlockSocket();
+			onUnavailable();
+		};
+		try {
+			var scheme = location.protocol === "https:" ? "wss:" : "ws:";
+			blockSocket = new WebSocket(scheme + "//" + location.host + apiBase + "/inv");
+		} catch (error) {
+			giveUp();
+			return;
+		}
+		var socket = blockSocket;
+		socket.onopen = function () {
+			socket.send(JSON.stringify({ op: "blocks_sub", at: state.token }));
+			if (onOpen) onOpen();
+		};
+		socket.onmessage = function (event) {
+			var message;
+			try { message = JSON.parse(event.data); } catch (error) { return; }
+			// What notifications-service.js sends when it refuses the token.
+			if (message && message.op === "error") {
+				giveUp();
+				return;
+			}
+			if (!message || message.op !== "block" || !message.x) return;
+			var height = message.x.height;
+			if (height < from || height > to || seen[height]) return;
+			seen[height] = true;
+			count += 1;
+			onBlock(count, height);
+		};
+		socket.onerror = socket.onclose = function () {
+			if (blockSocket === socket) blockSocket = null;
+			giveUp();
+		};
+	}
+
+	function closeBlockSocket() {
+		var socket = blockSocket;
+		blockSocket = null;
+		if (socket) {
+			socket.onclose = socket.onerror = null;
+			try { socket.close(); } catch (error) { /* already gone */ }
+		}
+	}
+
+	/* What the range will really do. Dojo stops at its own highest block
+	 * (blockchain-processor.js clamps to it) and an empty "to" means a single
+	 * block (tracker-rest-api.js) -- both said up front, not discovered later.
+	 * Returns the effective range, or null with the reason shown. */
+	function blockRange(showErrors) {
+		var fromText = el("blocks-from").value.trim();
+		var toText = el("blocks-to").value.trim();
+		var tip = state.indexedTip;
+		var span = el("blocks-span");
+
+		if (!fromText) {
+			span.textContent = tip !== null && tip !== undefined
+				? "Dojo has indexed up to block " + number(tip) + "."
+				: "";
+			if (showErrors) notice("blocks-note", "Enter the block to start from.");
+			return null;
+		}
+		var from = parseInt(fromText, 10);
+		var to = toText ? parseInt(toText, 10) : from;
+		if (!(from >= 0) || !(to >= 0)) {
+			if (showErrors) notice("blocks-note", "Block heights are whole numbers.");
+			return null;
+		}
+		if (to < from) {
+			span.textContent = "";
+			if (showErrors) notice("blocks-note", "The last block comes before the first.");
+			return null;
+		}
+		if (tip !== null && tip !== undefined && from > tip) {
+			span.textContent = "";
+			if (showErrors) {
+				notice("blocks-note", "Dojo has only indexed up to block " + number(tip) + ", so there is nothing to rescan from " + number(from) + ".");
+			}
+			return null;
+		}
+
+		var clipped = tip !== null && tip !== undefined && to > tip;
+		var end = clipped ? tip : to;
+		var total = end - from + 1;
+		span.textContent =
+			number(total) + (total === 1 ? " block" : " blocks") +
+			(toText ? "" : " — leave “to” empty to rescan just this one") +
+			(clipped ? ". Dojo stops at its highest block, " + number(tip) + "." : ".");
+		return { from: from, to: end, total: total };
+	}
+
+	function rescanBlocks() {
+		var range = blockRange(true);
+		if (!range) return;
+		notice("blocks-note", null);
 
 		var button = el("blocks-run");
+		var startedAt = Date.now();
+		var title = "Rescanning blocks " + number(range.from) +
+			(range.total > 1 ? " – " + number(range.to) : "");
 		button.disabled = true;
-		notice("blocks-note", "Rescanning blocks. This can take a long while — leave the page open.", "busy");
+		el("blocks-job-dismiss").hidden = true;
+		blocksJob.start(title, "Connecting to Dojo for live progress…", startedAt);
+		saveJob({ kind: "blocks", from: range.from, to: range.to, total: range.total, started: startedAt });
+
+		watchBlocks(range.from, range.to, progressFor(range, startedAt), function () {
+			blocksJob.stage("Live progress is not available here, so this cannot show how far it has got. Leave the page open until it finishes.");
+		}, function () {
+			blocksJob.stage("Connected. Waiting for Dojo to reach block " + number(range.from) + "…");
+		});
 
 		trackerGet(
-			"/rescan?fromHeight=" + encodeURIComponent(from) +
-				(to ? "&toHeight=" + encodeURIComponent(to) : "")
+			"/rescan?fromHeight=" + encodeURIComponent(range.from) +
+				"&toHeight=" + encodeURIComponent(range.to)
 		)
-			.then(function (result) {
-				notice("blocks-note", result.status || "Rescan complete", "ok");
+			.then(function () {
+				closeBlockSocket();
+				blocksJob.done(
+					"Rescanned " + number(range.total) + (range.total === 1 ? " block" : " blocks"),
+					"Blocks " + number(range.from) + (range.total > 1 ? " – " + number(range.to) : "") + "."
+				);
 			})
 			.catch(function (error) {
-				notice("blocks-note", error.message);
+				closeBlockSocket();
+				blocksJob.fail("Rescan failed", error.message);
 			})
 			.then(function () {
+				saveJob(null);
 				button.disabled = false;
 			});
+	}
+
+	function progressFor(range, startedAt) {
+		return function (count) {
+			var elapsed = (Date.now() - startedAt) / 1000;
+			var detail = number(count) + " of " + number(range.total) + " blocks";
+			// A rate from two blocks is noise; wait for a few before claiming one.
+			if (count >= 5 && elapsed > 2 && count < range.total) {
+				var rate = count / elapsed;
+				detail += " · " + (rate >= 10 ? Math.round(rate) : rate.toFixed(1)) + " blocks/s" +
+					" · about " + duration(((range.total - count) / rate) * 1000) + " left";
+			}
+			blocksJob.progress(count / range.total, detail);
+		};
+	}
+
+	/* A block rescan that was running when the page reloaded. The request is
+	 * gone and the tracker has no status route, but Dojo's block queue is
+	 * strictly sequential (lib/queue.js awaits each block before the next), so
+	 * the latest height in range is the true position: the bar can carry on
+	 * from where it really is. Completion is that height reaching the end. If
+	 * the socket goes quiet the page says so and offers to clear the panel,
+	 * rather than guessing it finished.
+	 */
+	var QUIET_MS = 30000;
+
+	function resumeBlocks(record) {
+		var button = el("blocks-run");
+		var range = { from: record.from, to: record.to, total: record.total };
+		var title = "Rescanning blocks " + number(range.from) +
+			(range.total > 1 ? " – " + number(range.to) : "");
+		var quiet = null;
+		var settle = function () {
+			if (quiet) clearTimeout(quiet);
+			closeBlockSocket();
+			saveJob(null);
+			button.disabled = false;
+		};
+		var unknown = function (detail) {
+			settle();
+			blocksJob.unknown("Rescan status unknown", detail);
+			el("blocks-job-dismiss").hidden = false;
+		};
+		var arm = function () {
+			if (quiet) clearTimeout(quiet);
+			quiet = setTimeout(function () {
+				unknown("No progress reported for a while. The rescan has probably finished.");
+			}, QUIET_MS);
+		};
+
+		el("blocks-from").value = String(range.from);
+		el("blocks-to").value = String(range.to);
+		button.disabled = true;
+		el("blocks-job-dismiss").hidden = true;
+		blocksJob.start(title, "Picking up the rescan that was running…", record.started);
+		arm();
+
+		watchBlocks(range.from, range.to, function (_count, height) {
+			var done = height - range.from + 1;
+			if (height >= range.to) {
+				settle();
+				blocksJob.done(
+					"Rescanned " + number(range.total) + (range.total === 1 ? " block" : " blocks"),
+					"Blocks " + number(range.from) + (range.total > 1 ? " – " + number(range.to) : "") + "."
+				);
+				return;
+			}
+			arm();
+			blocksJob.progress(done / range.total, number(done) + " of " + number(range.total) + " blocks");
+		}, function () {
+			unknown("This page reloaded during the rescan and cannot reconnect for live progress. It may still be running.");
+		});
+	}
+
+	// Gap limit and start index only mean anything for an extended key.
+	function syncRescanFields() {
+		var isKey = EXT_KEY.test(el("rescan-target").value.trim());
+		el("rescan-gap-field").hidden = !isKey;
+		el("rescan-start-field").hidden = !isKey;
 	}
 
 	function bindTools() {
@@ -1111,12 +1564,28 @@
 		el("result-rescan").addEventListener("click", function () {
 			showTab("tools");
 			el("rescan-target").value = el("lookup-input").value.trim();
+			syncRescanFields();
 			el("rescan-target").scrollIntoView({ block: "center", behavior: "smooth" });
 			el("rescan-target").focus();
 		});
 
+		rescanJob = job("rescan");
+		blocksJob = job("blocks");
+
+		el("rescan-target").addEventListener("input", syncRescanFields);
 		el("rescan-run").addEventListener("click", rescan);
+
+		var restate = function () {
+			notice("blocks-note", null);
+			blockRange(false);
+		};
+		el("blocks-from").addEventListener("input", restate);
+		el("blocks-to").addEventListener("input", restate);
 		el("blocks-run").addEventListener("click", rescanBlocks);
+		el("blocks-job-dismiss").addEventListener("click", function () {
+			blocksJob.hide();
+			el("blocks-job-dismiss").hidden = true;
+		});
 	}
 
 	/* ------------------------------------------------------------------- init */
@@ -1198,6 +1667,11 @@
 			state.pairing = results[0];
 			renderPairing();
 			setInterval(refresh, REFRESH_MS);
+			// After login, because both resumes need the token: the wallet one to
+			// ask Dojo for import status, the block one to open the socket.
+			var running = loadJob();
+			if (running && running.kind === "xpub") resumeXpub(running);
+			else if (running && running.kind === "blocks") resumeBlocks(running);
 		})
 		.catch(function (error) {
 			unreachable(
