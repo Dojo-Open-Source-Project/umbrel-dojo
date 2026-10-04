@@ -90,6 +90,10 @@ cd /tmp/umbrel-apps && npm install && npm run lint:apps -- dojo --check-images
 The **Validate** workflow runs that on every push, and also re-fetches the upstream tag `UMBREL.md`
 declares and reports any file in the vendored tree that differs from it.
 
+The community store's screenshots come from `umbrel/scripts/render-gallery.mjs`. It renders the real
+page against fixtures, never a device, because a real pairing QR encodes a live API key. Re-run it
+after any visible change to the page; its header lists the prerequisites.
+
 To build an image locally, first generate the files upstream's installer would have written:
 
 ```sh
