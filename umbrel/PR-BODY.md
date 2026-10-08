@@ -46,17 +46,17 @@ run today is Dojo, maintained by the Dojo Open Source Project.
 Upstream publishes no images. Its compose file sets `pull_policy: never` and
 builds everything locally via `dojo.sh`. The five images here are built by CI from
 a pinned, vendored copy of upstream `v1.29.3` at
-https://github.com/linkinparkrulz/umbrel-dojo, which documents every delta against
+https://github.com/Dojo-Open-Source-Project/umbrel-dojo, which documents every delta against
 that tag in `UMBREL.md`. They are published to GHCR as multi-arch manifest lists
 (`linux/amd64` + `linux/arm64`), pinned here by index digest, and pull anonymously.
 
 | Service | Image | Built from |
 |---|---|---|
-| `node` | `ghcr.io/linkinparkrulz/dojo-nodejs` | upstream `docker/my-dojo/node/Dockerfile` |
-| `db` | `ghcr.io/linkinparkrulz/dojo-db` | upstream `docker/my-dojo/mysql/Dockerfile` |
-| `soroban` | `ghcr.io/linkinparkrulz/dojo-soroban` | upstream `docker/my-dojo/soroban/Dockerfile` |
-| `nginx` | `ghcr.io/linkinparkrulz/dojo-nginx` | this packaging repo: the Dojo API proxy and the app's own page |
-| `widget` | `ghcr.io/linkinparkrulz/dojo-widget` | this packaging repo: the home-screen fee widget |
+| `node` | `ghcr.io/dojo-open-source-project/dojo-nodejs` | upstream `docker/my-dojo/node/Dockerfile` |
+| `db` | `ghcr.io/dojo-open-source-project/dojo-db` | upstream `docker/my-dojo/mysql/Dockerfile` |
+| `soroban` | `ghcr.io/dojo-open-source-project/dojo-soroban` | upstream `docker/my-dojo/soroban/Dockerfile` |
+| `nginx` | `ghcr.io/dojo-open-source-project/dojo-nginx` | this packaging repo: the Dojo API proxy and the app's own page |
+| `widget` | `ghcr.io/dojo-open-source-project/dojo-widget` | this packaging repo: the home-screen fee widget |
 
 ### Source deltas against upstream
 

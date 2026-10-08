@@ -13,7 +13,7 @@ Clone the store repository somewhere that persists, generate straight into it,
 and push:
 
 ```sh
-git clone https://github.com/linkinparkrulz/umbrel-dojo-osp-store.git ~/umbrel-dojo-osp-store
+git clone https://github.com/Dojo-Open-Source-Project/umbrel-dojo-osp-store.git ~/umbrel-dojo-osp-store
 
 ./umbrel/scripts/make-community-store.py ~/umbrel-dojo-osp-store
 
@@ -33,7 +33,11 @@ generated tree, but `/tmp` is cleared on reboot — and when it goes it takes
 be re-cloned. Pass a path under your home directory, as above.
 
 Then add the repository's URL in umbrelOS under **Settings → App Store →
-Community App Stores**.
+Community App Stores**: `https://github.com/Dojo-Open-Source-Project/umbrel-dojo-osp-store`.
+
+The store used to live at `linkinparkrulz/umbrel-dojo-osp-store`. GitHub
+redirects that URL, so a device that added the old one keeps receiving updates.
+New installs should use the address above.
 
 ## Making an update reach installed devices
 

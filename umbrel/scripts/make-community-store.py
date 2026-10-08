@@ -43,7 +43,7 @@ NGINX_IP = ('APP_DOJO_NGINX_IP="10.21.21.31"', 'APP_DOJO_NGINX_IP="10.21.21.32"'
 # The repository this store is published from. Override with STORE_REPO_SLUG if
 # you fork it somewhere else; both URLs below derive from it.
 STORE_REPO_SLUG = os.environ.get(
-    "STORE_REPO_SLUG", "linkinparkrulz/umbrel-dojo-osp-store"
+    "STORE_REPO_SLUG", "Dojo-Open-Source-Project/umbrel-dojo-osp-store"
 )
 STORE_REPO = f"https://github.com/{STORE_REPO_SLUG}"
 

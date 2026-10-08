@@ -21,11 +21,11 @@ All five are published to GHCR as multi-arch manifest lists (`linux/amd64` + `li
 
 | Image | Built from | Version source |
 |---|---|---|
-| `ghcr.io/linkinparkrulz/dojo-nodejs` | `docker/my-dojo/node/Dockerfile` (upstream) | `DOJO_NODEJS_VERSION_TAG` |
-| `ghcr.io/linkinparkrulz/dojo-db` | `docker/my-dojo/mysql/Dockerfile` (upstream, one permission delta) | `DOJO_DB_VERSION_TAG` |
-| `ghcr.io/linkinparkrulz/dojo-soroban` | `docker/my-dojo/soroban/Dockerfile` (upstream) | `DOJO_SOROBAN_VERSION_TAG` |
-| `ghcr.io/linkinparkrulz/dojo-nginx` | [`umbrel/images/nginx/`](./umbrel/images/nginx) (ours) | `DOJO_VERSION_TAG` |
-| `ghcr.io/linkinparkrulz/dojo-widget` | [`umbrel/images/widget/`](./umbrel/images/widget) (ours) | `DOJO_VERSION_TAG` |
+| `ghcr.io/dojo-open-source-project/dojo-nodejs` | `docker/my-dojo/node/Dockerfile` (upstream) | `DOJO_NODEJS_VERSION_TAG` |
+| `ghcr.io/dojo-open-source-project/dojo-db` | `docker/my-dojo/mysql/Dockerfile` (upstream, one permission delta) | `DOJO_DB_VERSION_TAG` |
+| `ghcr.io/dojo-open-source-project/dojo-soroban` | `docker/my-dojo/soroban/Dockerfile` (upstream) | `DOJO_SOROBAN_VERSION_TAG` |
+| `ghcr.io/dojo-open-source-project/dojo-nginx` | [`umbrel/images/nginx/`](./umbrel/images/nginx) (ours) | `DOJO_VERSION_TAG` |
+| `ghcr.io/dojo-open-source-project/dojo-widget` | [`umbrel/images/widget/`](./umbrel/images/widget) (ours) | `DOJO_VERSION_TAG` |
 
 Versions come from the vendored `docker/my-dojo/.env`, so they cannot drift from the source being built.
 
@@ -50,7 +50,7 @@ stitches the digests into one manifest list per image. Each image's full pinned 
 platforms are printed to the run summary:
 
 ```
-ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1@sha256:...
+ghcr.io/dojo-open-source-project/dojo-db:1.7.0-umbrel1@sha256:...
 ```
 
 Then, in order:
@@ -60,7 +60,7 @@ Then, in order:
    registry is the stronger check, since it shows what the tag really points at:
 
    ```sh
-   docker buildx imagetools inspect ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel1
+   docker buildx imagetools inspect ghcr.io/dojo-open-source-project/dojo-db:1.7.0-umbrel1
    ```
 
    Both `linux/amd64` and `linux/arm64` must be listed, and each package must be public in the
