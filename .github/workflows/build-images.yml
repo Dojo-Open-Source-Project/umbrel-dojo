@@ -97,8 +97,13 @@ jobs:
               ;;
           esac
 
+          # Image names must be lowercase, and GHCR namespaces always are. The
+          # owner is not: under the Dojo-Open-Source-Project org it is
+          # mixed-case, and the first build there failed with "repository name
+          # must be lowercase". Expressions cannot lowercase, so bash does it.
           {
             echo "repository=${repository}"
+            echo "image=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${repository}"
             echo "tag=${version}-${revision}"
             echo "dockerfile=${dockerfile}"
             echo "context=${context}"
@@ -131,7 +136,7 @@ jobs:
           provenance: false
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.platform.arch }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ steps.settings.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ steps.settings.outputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -188,7 +193,8 @@ jobs:
           esac
 
           {
-            echo "image=${REGISTRY}/${{ github.repository_owner }}/${repository}"
+            # Lowercase for the same reason as in the build job.
+            echo "image=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${repository}"
             echo "tag=${version}-${revision}"
           } >> "$GITHUB_OUTPUT"
 
