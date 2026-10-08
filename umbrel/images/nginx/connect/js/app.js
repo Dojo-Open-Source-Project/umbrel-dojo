@@ -167,20 +167,60 @@
 
 		el("tor-alert").hidden = !!state.onion;
 
-		renderChain(accounts, indexedBlock, nodeBlock);
+		renderChain(accounts, indexedBlock, nodeBlock, bitcoind);
 	}
 
 	/* The band. One statement of where the tracker is, the counts under it, and
 	 * a progress bar only when there is progress to show.
 	 */
-	function renderChain(accounts, indexedBlock, nodeBlock) {
+	/* The counts line is set in monospace so heights line up as they tick.
+	 * A sentence in monospace reads badly, so sentences get the body font. */
+	function counts(value, prose) {
+		var line = el("chain-counts");
+		line.textContent = value;
+		line.classList.toggle("is-prose", !!prose);
+	}
+
+	function renderChain(accounts, indexedBlock, nodeBlock, bitcoind) {
 		var meter = el("sync-meter");
 
 		text("uptime-note", accounts && accounts.uptime ? "Running for " + accounts.uptime : "Starting up");
 
+		/* Bitcoin's own sync comes first. Dojo can only index blocks the node
+		 * already has, and it follows the node block for block, so comparing
+		 * Dojo against the node says nothing while the node itself is behind
+		 * the network: 0 of 0 read as "at the chain tip" on a fresh node, and
+		 * mid-download 400,000 of 400,000 would have too.
+		 *
+		 * headers is how far the node knows the chain goes. It comes from the
+		 * pushtx status delta (UMBREL.md); an image without that delta sends no
+		 * headers, and then a node at block 0 is the one case we can still
+		 * tell is waiting.
+		 */
+		var headers = bitcoind && bitcoind.headers > 0 ? bitcoind.headers : null;
+		if (nodeBlock === 0 || (bitcoind && bitcoind.headers === 0)) {
+			text("chain-headline", "Waiting for Bitcoin to sync");
+			counts("Your Bitcoin node is still downloading block headers.", true);
+			meter.hidden = true;
+			svc("tracker", "warn", "Waiting");
+			return;
+		}
+		// The gap, not the IBD flag alone: Core can report initialblockdownload
+		// for a moment after a restart with every block in hand.
+		if (nodeBlock !== null && headers !== null && headers - nodeBlock > 2) {
+			var nodePct = Math.max(0, Math.min(100, (nodeBlock / headers) * 100));
+			text("chain-headline", "Bitcoin is syncing " + nodePct.toFixed(1) + "%");
+			counts(number(nodeBlock) + " of " + number(headers) + " blocks");
+			meter.hidden = false;
+			el("sync-fill").style.width = Math.max(2, nodePct) + "%";
+			text("sync-pct", number(headers - nodeBlock) + " blocks to go \u00b7 Dojo catches up once Bitcoin finishes");
+			svc("tracker", "warn", "Waiting");
+			return;
+		}
+
 		if (indexedBlock === null || indexedBlock === undefined) {
 			text("chain-headline", "Starting up");
-			text("chain-counts", "Waiting for Dojo to report a block height.");
+			counts("Waiting for Dojo to report a block height.", true);
 			meter.hidden = true;
 			svc("tracker", "warn", "Starting");
 			return;
@@ -188,7 +228,7 @@
 
 		if (nodeBlock === null) {
 			text("chain-headline", "Block " + number(indexedBlock));
-			text("chain-counts", "Indexed by your Dojo.");
+			counts("Indexed by your Dojo.", true);
 			meter.hidden = true;
 			svc("tracker", "ok", "Healthy");
 			return;
@@ -199,14 +239,14 @@
 		if (behind > 1) {
 			var pct = Math.max(0, Math.min(100, (indexedBlock / nodeBlock) * 100));
 			text("chain-headline", "Syncing " + pct.toFixed(1) + "%");
-			text("chain-counts", number(indexedBlock) + " of " + number(nodeBlock) + " blocks");
+			counts(number(indexedBlock) + " of " + number(nodeBlock) + " blocks");
 			meter.hidden = false;
 			el("sync-fill").style.width = Math.max(2, pct) + "%";
 			text("sync-pct", number(behind) + " blocks to go");
 			svc("tracker", "warn", "Syncing");
 		} else {
 			text("chain-headline", "At the chain tip");
-			text("chain-counts", number(nodeBlock) + " of " + number(nodeBlock) + " blocks");
+			counts(number(nodeBlock) + " of " + number(nodeBlock) + " blocks");
 			meter.hidden = true;
 			svc("tracker", "ok", "Healthy");
 		}
@@ -215,7 +255,7 @@
 	function unreachable(detail) {
 		text("uptime-note", "Not reachable");
 		text("chain-headline", "Not reachable");
-		text("chain-counts", detail);
+		counts(detail, true);
 		el("sync-meter").hidden = true;
 		// Same reasoning as the bitcoind lamp above: if Dojo's API is not
 		// answering, the state of the things behind it is unknown, not known to

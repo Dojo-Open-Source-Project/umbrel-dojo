@@ -73,11 +73,23 @@ export APP_DOJO_HIDDEN_SERVICE="$(cat "${dojo_hidden_service_file}" 2>/dev/null 
 
 # Per-install secrets. Deterministic, so they survive restarts and updates
 # without being stored anywhere.
-export APP_DOJO_NODE_API_KEY="$(derive_entropy "${app_entropy_identifier}-node-api-key")"
-export APP_DOJO_NODE_ADMIN_KEY="$(derive_entropy "${app_entropy_identifier}-node-admin-key")"
-export APP_DOJO_NODE_JWT_SECRET="$(derive_entropy "${app_entropy_identifier}-node-jwt-secret")"
-export APP_DOJO_MYSQL_PASSWORD="$(derive_entropy "${app_entropy_identifier}-mysql-password")"
-export APP_DOJO_MYSQL_ROOT_PASSWORD="$(derive_entropy "${app_entropy_identifier}-mysql-root-password")"
+#
+# Derived from Dojo's own app id, not from ${app_entropy_identifier}. umbreld
+# sources this file whenever any app that depends on Dojo starts, and in that
+# context app_entropy_identifier names the app being started, not Dojo -- so a
+# dependent would read a different API key, admin key and database passwords
+# from the ones Dojo is really using.
+#
+# The format is umbreld's own ("app-<id>-seed"), so when Dojo itself starts
+# this resolves to exactly what app_entropy_identifier did: every existing
+# install keeps the keys its wallets were paired with and the passwords its
+# database was created with. umbrel/testing/exports-test.sh checks both.
+dojo_entropy_identifier="app-${EXPORTS_APP_ID}-seed"
+export APP_DOJO_NODE_API_KEY="$(derive_entropy "${dojo_entropy_identifier}-node-api-key")"
+export APP_DOJO_NODE_ADMIN_KEY="$(derive_entropy "${dojo_entropy_identifier}-node-admin-key")"
+export APP_DOJO_NODE_JWT_SECRET="$(derive_entropy "${dojo_entropy_identifier}-node-jwt-secret")"
+export APP_DOJO_MYSQL_PASSWORD="$(derive_entropy "${dojo_entropy_identifier}-mysql-password")"
+export APP_DOJO_MYSQL_ROOT_PASSWORD="$(derive_entropy "${dojo_entropy_identifier}-mysql-root-password")"
 
 # The electrs dependency can be satisfied by Umbrel's electrs app or by any app
 # that implements it. Fulcrum serves batched Electrum requests and Dojo imports

@@ -60,7 +60,7 @@ that tag in `UMBREL.md`. They are published to GHCR as multi-arch manifest lists
 
 ### Source deltas against upstream
 
-Four, each documented in `UMBREL.md` with the failure it fixes. All but the
+Five, each documented in `UMBREL.md` with the failure it fixes. All but the
 explorer links are worth upstreaming, and are being reported.
 
 1. **MariaDB image file modes**, `0440`/`0550` → `0444`/`0555`. Upstream
@@ -76,6 +76,11 @@ explorer links are worth upstreaming, and are being reported.
    onion-hostname reads in try/catch, matching the one upstream already guards.
    Unguarded, turning on Soroban's inbound announce killed every Dojo process at
    module load.
+5. **`pushtx/status.js`**: report the node's `headers` and
+   `initialblockdownload` alongside `blocks`, copied from the same
+   `getblockchaininfo` reply. Without them the app's page cannot tell a synced
+   node from one still downloading, and read "At the chain tip, 0 of 0" on a
+   fresh node (raised in review).
 
 The Soroban image is also built with `SOROBAN_LINUX_UID/GID=1000` (upstream's
 default is 1111), a build argument rather than a source change, so it can run as

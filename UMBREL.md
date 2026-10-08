@@ -119,7 +119,7 @@ Umbrel unless the package mounts it.
 **This shipped as a live bug.** `1.29.3-patch.9` exposed `SOROBAN_ANNOUNCE` as an
 umbrelOS app setting; turning it on made all five processes die at import with
 `ENOENT: /var/lib/tor/hsv3soroban/hostname`, and the app never listened on 8080.
-The warning against `INDEXER_INSTALL` in section 6 below had described the
+The warning against `INDEXER_INSTALL` in section 7 below had described the
 identical hazard for a year without anyone applying it to its neighbour.
 
 The package now mounts `${APP_DATA_DIR}/data/soroban` at `/var/lib/tor/hsv3soroban`
@@ -129,7 +129,31 @@ these guards are the backstop for a lost race, not the fix.
 Kept local rather than upstreamed, by choice. Worth revisiting: it costs
 upstream nothing and removes the same trap for every other packager.
 
-### 5. Files upstream generates at install time
+### 5. `pushtx/status.js` — report the node's headers and initial-download flag
+
+`/pushtx/status/` reports Bitcoin Core's `blocks` and nothing about how far the
+chain goes, although `_refreshBlockchainInfo` already fetches
+`getblockchaininfo`, which has both. Two fields are copied out of that same reply:
+
+```js
+this.status.bitcoind.headers = info.headers;
+this.status.bitcoind.ibd = info.initialblockdownload === true;
+```
+
+Without them the app's page cannot tell a fully synced node from one still
+mid-download. Dojo follows the node block for block, so Dojo-versus-node always
+looks level. Umbrel's review caught this: a fresh node read
+**"At the chain tip — 0 of 0 blocks"**, and halfway through the download it
+would have read "400,000 of 400,000". The page now reads "Waiting for Bitcoin to
+sync" or "Bitcoin is syncing 43.6%" instead.
+
+The fields are additive, so nothing that reads the old shape changes. The page
+still handles an image without this delta: a node at block 0 is read as waiting
+either way.
+
+Worth upstreaming: Dojo's own Maintenance Tool would benefit for the same reason.
+
+### 6. Files upstream generates at install time
 
 Upstream's `docker/my-dojo/install/install-scripts.sh` writes several gitignored files on the host
 before `docker compose build` runs. We do not run `dojo.sh`, so `umbrel/scripts/prepare-build.sh`
@@ -141,7 +165,7 @@ makes the same choices, once, for both CI and local builds:
 | `static/admin/conf/index.js` | `index-mainnet.js` or `index-testnet.js` | not generated; nginx serves the network-specific file instead, so the image stays network-agnostic (see `umbrel/images/nginx/`) |
 | `docker/my-dojo/nginx/dojo.conf` | `mainnet.conf` or `testnet.conf` | not used; we build our own nginx image |
 
-### 6. Things deliberately *not* patched
+### 7. Things deliberately *not* patched
 
 - `docker/my-dojo/node/keys.index.js` takes everything else from the environment —
   `BITCOIND_*`, `INDEXER_*`, `NET_DOJO_MYSQL_IPV4`, `NET_DOJO_SOROBAN_IPV4`,
@@ -164,5 +188,5 @@ git rm -rq . && git checkout vX.Y.Z -- .        # restores our own files in the 
 git checkout HEAD@{1} -- umbrel .github UMBREL.md README.md
 ```
 
-Then re-apply deltas 1, 2 and 4, re-read `RELEASES.md` for anything affecting the package (new env vars,
+Then re-apply deltas 1 to 5, re-read `RELEASES.md` for anything affecting the package (new env vars,
 schema migrations, service topology), update the version tags in `umbrel/dojo/`, and rebuild.

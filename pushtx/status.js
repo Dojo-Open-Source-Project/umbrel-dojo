@@ -18,6 +18,8 @@ const DEFAULT_STATUS = {
 		up: false,
 		conn: -1,
 		blocks: -1,
+		headers: -1,
+		ibd: false,
 		version: -1,
 		protocolversion: -1,
 		relayfee: 0,
@@ -115,6 +117,8 @@ class Status {
 	async _refreshBlockchainInfo() {
 		const info = await this.rpcClient.getblockchaininfo();
 		this.status.bitcoind.blocks = info.blocks;
+		this.status.bitcoind.headers = info.headers;
+		this.status.bitcoind.ibd = info.initialblockdownload === true;
 		this.status.bitcoind.testnet = info.chain !== "main";
 		this.status.bitcoind.up = true;
 	}

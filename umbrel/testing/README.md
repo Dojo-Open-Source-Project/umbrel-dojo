@@ -109,3 +109,19 @@ For the real thing, see `umbrel-test-app` in
 [getumbrel/umbrel-apps](https://github.com/getumbrel/umbrel-apps): rsync the
 package into the App Store source directory on a device and install it through
 Umbrel.
+
+## exports.sh
+
+```sh
+./umbrel/testing/exports-test.sh
+```
+
+Sources `umbrel/dojo/exports.sh` the way umbreld's `source_app` does, with
+`derive_entropy` stubbed to echo its identifier. It checks two things:
+
+- Started on its own, every secret matches what existing installs derived.
+  These are the API key wallets were paired with and the passwords the
+  database was created with, so they must never move.
+- Sourced by a dependent app, every secret is still Dojo's own. umbreld names
+  the *starting* app in `app_entropy_identifier`, so deriving from it gave
+  dependents different keys.

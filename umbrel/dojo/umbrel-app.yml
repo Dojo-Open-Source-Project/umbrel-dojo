@@ -2,7 +2,7 @@ manifestVersion: 1
 id: dojo
 category: bitcoin
 name: Dojo
-version: "1.29.3-patch.12"
+version: "1.29.3-patch.13"
 tagline: Your own private backend for Ashigaru, Sentinel and Samourai
 description: >-
   Dojo indexes your own wallets against your own Bitcoin node, so the addresses
@@ -37,26 +37,15 @@ description: >-
   Whirlpool is not included. Its coordinator was shut down in 2024 and the
   service no longer exists.
 releaseNotes: >-
-  Rescans now show their progress. A block-range rescan shows a real progress
-  bar, with how many blocks are done, how fast it is going and roughly how long
-  is left. A wallet rescan shows which stage it is at and how many transactions
-  it has found so far. Both finish by showing what changed, instead of a brief
-  message. If you reload the page partway through, it picks the rescan back up.
+  While your Bitcoin node is still syncing, the app now says so. A fresh node
+  used to show "At the chain tip, 0 of 0 blocks". Now it reads "Waiting for
+  Bitcoin to sync", and once blocks start arriving it shows how far the node
+  has got. Dojo catches up as soon as Bitcoin finishes.
 
 
-  Fixed: rescanning a wallet Dojo is not tracking used to show the error in
-  green, as if it had worked. It now says plainly that the rescan did not run,
-  and why.
-
-
-  The block-range form now tells you how many blocks a range covers before you
-  start, and says up front when the range runs past the newest block Dojo has
-  indexed. Previously Dojo quietly stopped at that point.
-
-
-  The paired wallets count now matches the cards on screen, and the Electrum
-  server light turns amber while the server is still catching up with your
-  node, instead of showing green.
+  Dojo's API key and other credentials now stay the same for any app that
+  connects to Dojo. Nothing changes for your own install: your paired wallets
+  keep working without being paired again.
 developer: Dojo Open Source Project
 website: https://github.com/Dojo-Open-Source-Project
 dependencies:

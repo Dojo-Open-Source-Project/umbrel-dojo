@@ -52,7 +52,7 @@ jobs:
 
           # The deltas UMBREL.md documents are the only source changes we expect.
           unexpected="$(awk -F'|' 'NF>1 {gsub(/ /,"",$1); print $1}' /tmp/deltas.txt \
-            | grep -vE '^(docker/my-dojo/mysql/Dockerfile|lib/auth/auth-rest-api.js|static/admin/lib/common-script.js)$' || true)"
+            | grep -vE '^(docker/my-dojo/mysql/Dockerfile|lib/auth/auth-rest-api.js|static/admin/lib/common-script.js|docker/my-dojo/node/keys.index.js|pushtx/status.js)$' || true)"
           if [ -n "${unexpected}" ]; then
             echo "::warning::Undocumented deltas against ${tag}: ${unexpected}"
           fi
@@ -66,6 +66,27 @@ jobs:
             git status --porcelain >&2
             exit 1
           fi
+
+  tests:
+    name: Package tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No Docker and no network: the page and widget server run against
+      # stubbed responses in Dojo's real shapes, and exports.sh is sourced the
+      # way umbreld sources it.
+      - name: Connect page
+        run: node umbrel/testing/connect-page-test.mjs
+      - name: Widget server
+        run: node umbrel/testing/widget-server-test.mjs
+      - name: exports.sh
+        run: ./umbrel/testing/exports-test.sh
 
   lint-app:
     name: App Store lint

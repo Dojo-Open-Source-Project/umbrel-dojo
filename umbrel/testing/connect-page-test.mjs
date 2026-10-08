@@ -59,6 +59,12 @@ function assert(condition, message) {
 /* ------------------------------------------------------------------ the DOM */
 
 function makeElement(id) {
+	const element = makeBareElement(id);
+	element.classList.owner = element;
+	return element;
+}
+
+function makeBareElement(id) {
 	const attributes = new Map();
 	let markup = "";
 	return {
@@ -83,6 +89,17 @@ function makeElement(id) {
 			(this.listeners.close || []).forEach((fn) => fn({}));
 		},
 		style: {},
+		// Backed by className, so assertions on either stay in step.
+		classList: {
+			toggle(name, on) {
+				const set = new Set(this.owner.className.split(/\s+/).filter(Boolean));
+				const want = on === undefined ? !set.has(name) : !!on;
+				if (want) set.add(name); else set.delete(name);
+				this.owner.className = [...set].join(" ");
+				return want;
+			},
+			contains(name) { return this.owner.className.split(/\s+/).includes(name); }
+		},
 		children: [],
 		listeners: {},
 		setAttribute(name, value) { attributes.set(name, String(value)); },
@@ -121,6 +138,10 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 	hash = "", feesFail = false,
 	pandoTxPush = "on", pandoTxProcess = "off", sorobanAnnounce = "off",
 	indexerHeight = 92_417,
+	// Bitcoin Core's own view, as /pushtx/status/ reports it. headers and ibd
+	// come from the pushtx delta (UMBREL.md); null leaves them out entirely,
+	// the way an image without that delta answers.
+	nodeBlocks = 92_417, nodeHeaders = 92_417, nodeIbd = false, dojoBlocks = 92_416,
 	// Rescans resolve only when the test says so, so a running job can be
 	// inspected mid-flight.
 	holdRescans = false,
@@ -193,11 +214,10 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 			// sendRawData and does not. This fixture used to return the bare object,
 			// which no server ever sends -- so the suite passed while the live page
 			// showed a red Bitcoin node lamp for months.
-			return json(
-				barePushtx
-					? { bitcoind: { up: true, conn: 12, blocks: 92_417, version: 310_000 } }
-					: { status: "ok", data: { bitcoind: { up: true, conn: 12, blocks: 92_417, version: 310_000 } } }
-			);
+			const bitcoind = { up: true, conn: 12, blocks: nodeBlocks, version: 310_000 };
+			if (nodeHeaders !== null) bitcoind.headers = nodeHeaders;
+			if (nodeIbd !== null) bitcoind.ibd = nodeIbd;
+			return json(barePushtx ? { bitcoind } : { status: "ok", data: { bitcoind } });
 		}
 		if (url.endsWith("/status/")) {
 			calls.status += 1;
@@ -205,7 +225,7 @@ function makeHarness({ onion = null, pairing = true, barePushtx = false, pushtxD
 				statusUnauthorizedOnce = false;
 				return json({ error: "expired" }, 401);
 			}
-			return json({ uptime: "3 days", blocks: 92_416, indexer: { type: "local_indexer", maxHeight: indexerHeight } });
+			return json({ uptime: "3 days", blocks: dojoBlocks, indexer: { type: "local_indexer", maxHeight: indexerHeight } });
 		}
 		if (url.endsWith("/pairing")) {
 			return pairing
@@ -1089,6 +1109,107 @@ process.stdout.write("\nConnect page\n");
 		assert(lamp.getAttribute("aria-label") === "Enabled", `got ${lamp.getAttribute("aria-label")}`);
 		// The rest of the page is fine, so this is not a general failure state.
 		assert(h.el("svc-bitcoind").getAttribute("aria-label") === "Healthy", "the node should still be healthy");
+	});
+}
+
+/* ------------------------------------------------- Bitcoin still syncing */
+
+process.stdout.write("\nBitcoin still syncing\n");
+
+{
+	// What Umbrel's review saw: Core still on headers reports blocks 0, Dojo's
+	// empty database reports 0, and 0 - 0 used to read as "at the chain tip".
+	const h = makeHarness({ onion: "abcdef123456.onion",
+		nodeBlocks: 0, nodeHeaders: 0, nodeIbd: true, dojoBlocks: 0, indexerHeight: null });
+	h.run();
+	await h.settle();
+
+	check("a node with no blocks yet is waiting, never at the chain tip", () => {
+		assert(h.el("chain-headline").textContent === "Waiting for Bitcoin to sync",
+			`headline was ${h.el("chain-headline").textContent}`);
+		assert(!/0 of 0/.test(h.el("chain-counts").textContent), `counts were ${h.el("chain-counts").textContent}`);
+		assert(h.el("chain-counts").classList.contains("is-prose"), "a sentence gets the body font");
+		assert(h.el("svc-tracker").getAttribute("aria-label") === "Waiting",
+			`tracker was ${h.el("svc-tracker").getAttribute("aria-label")}`);
+		assert(h.el("svc-tracker").className.includes("dot--warn"), `class was ${h.el("svc-tracker").className}`);
+	});
+}
+
+{
+	// Without the pushtx delta there is no headers field at all. blocks 0 on
+	// its own must still be read as waiting.
+	const h = makeHarness({ onion: "abcdef123456.onion",
+		nodeBlocks: 0, nodeHeaders: null, nodeIbd: null, dojoBlocks: 0 });
+	h.run();
+	await h.settle();
+
+	check("an older image with no headers field still waits on a node at block 0", () => {
+		assert(h.el("chain-headline").textContent === "Waiting for Bitcoin to sync",
+			`headline was ${h.el("chain-headline").textContent}`);
+	});
+}
+
+{
+	// Mid initial block download: Dojo follows the node block for block, so
+	// comparing Dojo against the node alone reads "at the chain tip" with half
+	// the chain still to come.
+	const h = makeHarness({ onion: "abcdef123456.onion",
+		nodeBlocks: 400_000, nodeHeaders: 917_284, nodeIbd: true, dojoBlocks: 400_000 });
+	h.run();
+	await h.settle();
+
+	check("mid initial block download reads as Bitcoin syncing, with its percentage", () => {
+		assert(h.el("chain-headline").textContent === "Bitcoin is syncing 43.6%",
+			`headline was ${h.el("chain-headline").textContent}`);
+		assert(h.el("chain-counts").textContent === "400,000 of 917,284 blocks",
+			`counts were ${h.el("chain-counts").textContent}`);
+		assert(h.el("sync-pct").textContent === "517,284 blocks to go \u00b7 Dojo catches up once Bitcoin finishes",
+			`under the bar: ${h.el("sync-pct").textContent}`);
+		assert(!h.el("chain-counts").classList.contains("is-prose"), "figures stay monospaced");
+		assert(h.el("sync-meter").hidden === false, "the meter should show Bitcoin's progress");
+		assert(h.el("svc-tracker").getAttribute("aria-label") === "Waiting",
+			`tracker was ${h.el("svc-tracker").getAttribute("aria-label")}`);
+	});
+}
+
+{
+	// Core can briefly report initialblockdownload with blocks and headers
+	// equal (right after a restart). The gap is what matters, so the IBD flag
+	// alone with no gap must not hold the page in "syncing" at 100%.
+	const h = makeHarness({ onion: "abcdef123456.onion",
+		nodeBlocks: 917_284, nodeHeaders: 917_284, nodeIbd: true, dojoBlocks: 917_284, indexerHeight: 917_284 });
+	h.run();
+	await h.settle();
+
+	check("a node with every header's block in hand is not reported as syncing", () => {
+		assert(h.el("chain-headline").textContent === "At the chain tip",
+			`headline was ${h.el("chain-headline").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion" });
+	h.run();
+	await h.settle();
+
+	check("a synced node and Dojo still read as at the chain tip", () => {
+		assert(h.el("chain-headline").textContent === "At the chain tip",
+			`headline was ${h.el("chain-headline").textContent}`);
+		assert(h.el("chain-counts").textContent === "92,417 of 92,417 blocks",
+			`counts were ${h.el("chain-counts").textContent}`);
+	});
+}
+
+{
+	const h = makeHarness({ onion: "abcdef123456.onion", dojoBlocks: 80_000, indexerHeight: 92_417 });
+	h.run();
+	await h.settle();
+
+	check("a synced node with Dojo behind still reads as Dojo syncing", () => {
+		assert(/^Syncing \d/.test(h.el("chain-headline").textContent),
+			`headline was ${h.el("chain-headline").textContent}`);
+		assert(h.el("svc-tracker").getAttribute("aria-label") === "Syncing",
+			`tracker was ${h.el("svc-tracker").getAttribute("aria-label")}`);
 	});
 }
 
