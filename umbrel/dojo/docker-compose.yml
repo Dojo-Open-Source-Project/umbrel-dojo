@@ -5,7 +5,7 @@ services:
       APP_PORT: 8081
 
   db:
-    image: ghcr.io/linkinparkrulz/dojo-db:1.7.0-umbrel16@sha256:2af51359918037a04b4011f1eb0afe8d6e0c3c49d82f91683beda6764f2a9cb2
+    image: ghcr.io/dojo-open-source-project/dojo-db:1.7.0-umbrel19@sha256:b0f0574d7f54e9d223b7c846d3c4091e0ea7f4e0062f0279094e5ddc42610aea
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -27,7 +27,7 @@ services:
       retries: 6
 
   node:
-    image: ghcr.io/linkinparkrulz/dojo-nodejs:1.29.3-umbrel16@sha256:66cfc27bf66030d1caff7dd3492e9808fce7c39223205832cbee5536feae6017
+    image: ghcr.io/dojo-open-source-project/dojo-nodejs:1.29.3-umbrel19@sha256:f98d39ba3c3b3f426748cf53cbd2e9e0cec5f5234a4488d080ef43e8b7c704da
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -149,7 +149,7 @@ services:
       NODE_URL_ESPLORA_API: https://blockstream.info/testnet
 
   soroban:
-    image: ghcr.io/linkinparkrulz/dojo-soroban:0.4.2-umbrel16@sha256:92367ac40b2a871bc5060f7bfd633f597f62bc702e8abc3d6fefc42e7b01ea57
+    image: ghcr.io/dojo-open-source-project/dojo-soroban:0.4.2-umbrel19@sha256:068f261aaecfda41257ea25c28d2b7a3099efaccb99fd3c3ee0ccb1882ee317c
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -166,7 +166,7 @@ services:
       - ${APP_DATA_DIR}/data/soroban:/home/soroban/data
 
   nginx:
-    image: ghcr.io/linkinparkrulz/dojo-nginx:1.29.3-umbrel16@sha256:353f7e4779f302f06a0c41c0b4596e3a8af1e6b6e3b4dffd08c14bfd3998e0d0
+    image: ghcr.io/dojo-open-source-project/dojo-nginx:1.29.3-umbrel19@sha256:ade532acc2e8e85bfc554757405d3cc6eb89983279a539a2c677808b941abc24
     init: true
     restart: on-failure
     user: "1000:1000"
@@ -217,7 +217,7 @@ services:
     # Deliberately no `ports:` -- umbrelOS fetches a widget endpoint itself,
     # over the app network and without going through app_proxy, so 3000 must
     # not be reachable from the host.
-    image: ghcr.io/linkinparkrulz/dojo-widget:1.29.3-umbrel16@sha256:4679cbcc4a476177061fc5b0230e70d4a31ab57c047351360b5bd80c14acc10f
+    image: ghcr.io/dojo-open-source-project/dojo-widget:1.29.3-umbrel19@sha256:10f6c0d327db7b13a50746f3bf92a642028ca3c2bbece764cbe1aea70c6717da
     init: true
     restart: on-failure
     user: "1000:1000"
